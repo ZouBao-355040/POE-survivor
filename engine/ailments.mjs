@@ -28,7 +28,7 @@ export class AilmentPool {
 
 // Baseline alternate ailment coefficients; verify against target PoE patch.
 export function alternateEffect(type,damage,threshold,multiplier=1){
- const rules={scorch:[.5,.3,.02],brittle:[.25,.06,.002],sap:[.5,.2,.02]};
+ const rules={scorch:[.5,.3,.02],brittle:[.10,.06,.01],sap:[1/3,.2,.02]};
  if(!rules[type]||threshold<=0)throw new Error('Invalid alternate ailment');
  const [coefficient,cap,min]=rules[type];
  const effect=coefficient*Math.pow(Math.max(0,damage)/threshold,.4)*multiplier;
