@@ -1,3 +1,4 @@
+import {damageProxy} from './combat-recovery.mjs?v=0.5.13';
 import {recoveryLimit} from './resources.mjs?v=0.5.12';
 import {LeechPool} from './recovery.mjs?v=0.5.9';
 const resources=[['life','maximumLife'],['mana','maximumMana'],['energyShield','maximumEnergyShield']];
@@ -11,7 +12,7 @@ export function addHitLeech(player,shot,result,modifiers){
  const delivered=total(damage);
  if(!(delivered>0))return;
  const source=shot.skill.source??'attack';
- const proxy=shot.leechProxy??(['totem','trap','mine'].includes(shot.skill.deploy)?shot.skill.deploy:undefined);
+ const proxy=damageProxy(shot);
  if(proxy&&proxy!=='totem')return;
  const context={...shot.skill.context,tags:[...(shot.skill.context?.tags??[]),source]};
  const f=stat=>modifiers.calculate(0,stat,context);

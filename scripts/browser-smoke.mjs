@@ -27,7 +27,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.12/);
+ assert.match(await text('.brand'),/v0\.5\.13/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
  assert.equal(await text('#campaign-character'),'遊俠');
@@ -336,7 +336,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.12',async route=>{
+ await page.route('**/play.mjs?v=0.5.13',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
@@ -369,7 +369,7 @@ async function verifyVaalPact(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.12',async route=>{
+ await page.route('**/play.mjs?v=0.5.13',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -405,7 +405,7 @@ async function verifyGhostDance(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.12',async route=>{
+ await page.route('**/play.mjs?v=0.5.13',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -434,8 +434,56 @@ async function verifyGhostDance(){
  await page.close();
  console.log('鬼舞：手機配置後累積鬼影，實際吃到敵方法術時回復護盾並消耗一層。');
 }
+async function verifyAttackRecovery(){
+ const {allocate,tracePath}=await import('../engine/passive-tree.mjs');
+ let p={characterClass:'Ranger',level:1,passivePoints:60};
+ for(const n of [6042,27788])for(const id of tracePath(p,n).slice(1,-1))p=allocate(p,id);
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
+ const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{Math.random=()=>.4;});
+ await page.route('**/play.mjs?v=0.5.13',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker='updateEquipment({refill:true});guideChoice.close();';
+  const allocation='updateEquipment();return state.progression;';
+  assert.ok(source.includes(marker)&&source.includes(allocation));
+  const fixture=`updateEquipment();if(id===6042||id===27788){
+    Object.assign(state.player,{life:20,maximumLife:100,lifeRegen:0});
+    state.flasks={life:{charges:0,remaining:0},mana:{charges:0,remaining:0}};
+    state.enemies=[{id:'recovery-fixture',x:2.3,y:0,life:id===6042?1000:1,maximumLife:1000,speed:0,defence:{},evasion:0,radius:.4}];
+    state.projectiles=[];state.cooldown=0;
+   }return state.progression;`;
+  await route.fulfill({response,body:source.replace(marker,
+    `state.progression=${JSON.stringify(p)};updateEquipment({refill:true});state.enemies=[];guideChoice.close();`)
+   .replace(allocation,fixture)});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ const allocateThroughUI=async(id,description)=>{
+  await page.locator('#talent-open').click();
+  await page.getByRole('searchbox',{name:'搜尋天賦'}).fill(String(id));
+  const node=page.locator(`[data-talent-id="${id}"]`);
+  assert.equal(await node.getAttribute('data-talent-state'),'available');
+  await node.click();
+  assert.match(await page.locator('.talent-details').innerText(),description);
+  await page.locator(`[data-talent-allocate="${id}"]`).click();
+  assert.equal(await node.getAttribute('data-talent-state'),'allocated');
+  await page.keyboard.press('Escape');
+ };
+ await allocateThroughUI(6042,/攻擊擊中一名敵人/);
+ await page.clock.runFor(450);
+ assert.equal(await page.locator('#life-num').innerText(),'25/100');
+ await allocateThroughUI(27788,/擊殺時回復 2%/);
+ await page.clock.runFor(450);
+ assert.equal(await page.locator('#life-num').innerText(),'27/100');
+ assert.match(await page.locator('#status').innerText(),/擊殺 1/);
+ assert.deepEqual(errors,[]);
+ await page.close();
+ console.log('擊中與擊殺回復：手機配置兩個節點後，普攻命中 +5，最後一擊另外 +2。');
+}
 try{
- if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();}
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();}
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}

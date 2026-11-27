@@ -1,4 +1,5 @@
-import {addHitLeech} from './player-leech.mjs?v=0.5.12';
+import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.13';
+import {addHitLeech} from './player-leech.mjs?v=0.5.13';
 import {compileAttack} from './skill.mjs?v=0.5.7';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
@@ -69,7 +70,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
  }
  function field(p,env,type){
   const a=p.skill.active;
-  env.addField({x:p.x,y:p.y,radius:a.areaRadius??1.2,color:p.color,type,skill:p.skill,
+  env.addField({x:p.x,y:p.y,radius:a.areaRadius??1.2,color:p.color,type,skill:p.skill,leechProxy:p.leechProxy,
    until:env.time+(a.duration??2),next:env.time,pulseEvery:.2,moving:a.movingGround,fuseGround:a.fuseGround,pierce:p.pierce,rolls:p.rolls,attacker:p.attacker});
  }
  function projectileSpeed(chosen,skill){
@@ -257,6 +258,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const result=resolveAttackImpact({attacker:{...p.attacker,accuracy:player.accuracy,maximumLife:player.maximumLife,life:player.life,rules:player.rules},target:{...target,combatResistances:exposure},skill:s,modifiers,rolls:p.rolls});
   let t=result.target;delete t.combatResistances;
   if(!result.hit.hit||result.mitigation?.blocked)return t;
+  recoverOnAttackHit(player,p);
   addHitLeech(player,p,result,modifiers);
   if(player.rules?.elementalOverload&&result.hit.critical)overloadUntil.set(p.skill.id,time+8);
   if(player.rules?.elementalEquilibrium&&elements.some(type=>result.damage?.[type]>0))
@@ -346,9 +348,9 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(a.fuseGround&&!a.ground)env.addField({...p,radius:a.explosion,groundBomb:true,next:env.time+.32,until:env.time+.36,pulseEvery:1});
   if(a.ground&&(!a.groundOnImpact||!target))field(p,env,a.ground);
   if(a.bladeRemains)paintDormant(p,env,.22,2.8);
-  if(a.thunder)env.addField({...p,radius:2.35,thunder:true,stages:0,inside:false,next:env.time+.25,until:env.time+10,pulseEvery:.25});
+  if(a.thunder)env.addField({...p,radius:2.35,skill:p.skill,leechProxy:p.leechProxy,rolls:p.rolls,attacker:p.attacker,thunder:true,stages:0,inside:false,next:env.time+.25,until:env.time+10,pulseEvery:.25});
   if(p.skill.voidstorm){
-   env.addField({...p,type:'void',radius:1.6,next:env.time+.10,until:env.time+1.6,pulseEvery:.18,color:'#c3a0e3'});
+   env.addField({...p,type:'void',radius:1.6,skill:p.skill,leechProxy:p.leechProxy,next:env.time+.10,until:env.time+1.6,pulseEvery:.18,color:'#c3a0e3'});
   }
   if(a.anomaly)env.addField({...p,radius:1.45,groundBomb:true,next:env.time+.45,until:env.time+.50,pulseEvery:1});
   if(a.storm)env.addField({...p,radius:.42,storm:true,next:env.time+.45,until:env.time+2.6,pulseEvery:a.stormRate??.50});

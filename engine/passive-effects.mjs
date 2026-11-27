@@ -84,6 +84,23 @@ export function parsePassiveLine(line){
   const names={Life:'生命',Mana:'魔力','Energy Shield':'能量護盾'};
   return [parts.map(type=>numeric('leech'+type.replace(' ','')+kind,+m[1]/100)),parts.map(type=>names[type]).join('／')+'偷取每秒總回復'+(cap?'上限':'速度')+'提高 '+m[1]+'%'];
  }
+ if((m=line.match(/^Gain (\d+) (Life|Mana|Energy Shield) per Enemy (Killed|Hit with Attacks)$/))){
+  const names={Life:['Life','生命'],Mana:['Mana','魔力'],'Energy Shield':['EnergyShield','能量護盾']};
+  const [key,label]=names[m[2]],hit=m[3]!=='Killed';
+  return [[numeric('recover'+key+(hit?'AttackHit':'KillFlat'),+m[1])],(hit?'每以攻擊擊中一名敵人':'每擊殺一名敵人')+'，回復 '+m[1]+' '+label];
+ }
+ if((m=line.match(/^Recover (\d+)% of (Life|Mana|Energy Shield) on Kill$/))){
+  const names={Life:['Life','生命'],Mana:['Mana','魔力'],'Energy Shield':['EnergyShield','能量護盾']};
+  const [key,label]=names[m[2]];
+  return [[numeric('recover'+key+'KillFraction',+m[1]/100)],'擊殺時回復 '+m[1]+'% 最大'+label];
+ }
+ if((m=line.match(/^(\d+)% of Damage taken Recouped as (Life|Mana|Energy Shield)$/))){
+  const names={Life:['Life','生命'],Mana:['Mana','魔力'],'Energy Shield':['EnergyShield','能量護盾']};
+  const [key,label]=names[m[2]];
+  return [[numeric('recoup'+key,+m[1]/100)],'承受的擊中傷害有 '+m[1]+'% 分段回復為'+label];
+ }
+ if(line==='Life Recoup Effects instead occur over 3 seconds')
+  return [[numeric('recoupLifeDuration',3)],'生命傷害回復改為在 3 秒內完成'];
  if((m=line.match(/^(\d+)% of Leech is Instant$/)))
   return [[numeric('leechInstant',+m[1]/100)],m[1]+'% 偷取立即回復'];
  if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)% of Energy Shield per second$/)))

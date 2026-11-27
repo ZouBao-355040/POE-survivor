@@ -1,4 +1,5 @@
-import {advancePlayerLeech} from './player-leech.mjs?v=0.5.12';
+import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.13';
+import {advancePlayerLeech} from './player-leech.mjs?v=0.5.13';
 import {collectGold} from './gem-shop.mjs';
 import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.12';
 import {moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
@@ -33,12 +34,12 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
   if(player.energyShield>=recoveryLimit(player,'energyShield'))player.shieldCharging=false;
  }
  if(player.rules?.agnostic)player=agnosticStep(player,dt);
- player=tickGhostShrouds(player,dt);
+ player=tickHitRecoup(tickGhostShrouds(player,dt),dt);
  if(flasks)({player,flasks}=advanceFlaskRecovery(player,flasks,dt));
  advancePlayerLeech(player,dt);
- enemies=enemies.map(e=>{let target=e;const defence=e.exposureUntil>time?{...e.defence,resistances:{...e.defence?.resistances,...Object.fromEntries((e.exposed??[]).map(type=>[type,(e.defence?.resistances?.[type]??0)-.25]))}}:e.defence;for(const i of igniteIntervals(e.ignites??[],time,time+dt)){if(target.life<=0)break;const rates=mitigateDot({fire:i.rate},defence);target=applyDamage(target,Object.fromEntries(Object.entries(rates).map(([k,v])=>[k,v*(i.end-i.start)])),target.rules).state;}if(target.life>0)target=applyDamage(target,integrateDot((e.dots??[]).map(i=>i.type==='chaos'&&e.witherUntil>time?{...i,rate:i.rate*1.15}:i),time,time+dt,defence),target.rules).state;return {...target,dots:(e.dots??[]).filter(i=>i.end>time+dt),ignites:(e.ignites??[]).filter(i=>i.end>time+dt)};});
+ enemies=enemies.map(e=>{let target=e;const defence=e.exposureUntil>time?{...e.defence,resistances:{...e.defence?.resistances,...Object.fromEntries((e.exposed??[]).map(type=>[type,(e.defence?.resistances?.[type]??0)-.25]))}}:e.defence;for(const i of igniteIntervals(e.ignites??[],time,time+dt)){if(target.life<=0)break;const rates=mitigateDot({fire:i.rate},defence);target=applyDamage(target,Object.fromEntries(Object.entries(rates).map(([k,v])=>[k,v*(i.end-i.start)])),target.rules).state;}if(target.life>0)target=applyDamage(target,integrateDot((e.dots??[]).map(i=>i.type==='chaos'&&e.witherUntil>time?{...i,rate:i.rate*1.15}:i),time,time+dt,defence),target.rules).state;if(e.life>0&&target.life<=0){target.killCredit='player-dot';player=recoverOnKill(player);}return {...target,dots:(e.dots??[]).filter(i=>i.end>time+dt),ignites:(e.ignites??[]).filter(i=>i.end>time+dt)};});
  enemies=enemies.map(e=>e.life>0?moveToward(e,player,(e.frozenUntil>time?0:(e.speed??0)*(e.chilledUntil>time?.7:1)),dt,e.attackRange??.5):e);
- const hit=(e,p,sourcePlayer=player)=>{const i=enemies.findIndex(t=>t.id===e.id);if(i<0||enemies[i].life<=0)return;if(onImpact){const t=enemies[i];const shocked=t.shockedUntil>time;const next=onImpact(shocked?{...t,defence:{...t.defence,increasedTaken:(t.defence?.increasedTaken??0)+.15}}:t,p,time+dt,sourcePlayer);enemies[i]=shocked?{...next,defence:t.defence}:next;}onHitEffect?.(p,enemies[i],env);events.push({type:'impact',target:e.id,skill:p.skill?.id});};
+ const hit=(e,p,sourcePlayer=player)=>{const i=enemies.findIndex(t=>t.id===e.id);if(i<0||enemies[i].life<=0)return;if(onImpact){const t=enemies[i];const shocked=t.shockedUntil>time;const next=onImpact(shocked?{...t,defence:{...t.defence,increasedTaken:(t.defence?.increasedTaken??0)+.15}}:t,p,time+dt,sourcePlayer);if(next.life<=0){const owned=!damageProxy(p);next.killCredit=owned?'player-hit':'proxy-hit';if(owned)Object.assign(sourcePlayer,recoverOnKill(sourcePlayer));}enemies[i]=shocked?{...next,defence:t.defence}:next;}onHitEffect?.(p,enemies[i],env);events.push({type:'impact',target:e.id,skill:p.skill?.id});};
  const env={player,enemies,hit,time:time+dt};
  const fields=[],spawned=[];
  env.spawn=p=>spawned.push(p);
@@ -64,7 +65,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
    if(result.rechargeInterrupted&&!(player.rules?.wickedWard&&player.shieldCharging&&time+dt-player.shieldRechargeStarted<4)){
     result.target.shieldInterruptedAt=time+dt;result.target.shieldCharging=false;
    }
-   player=consumeGhostShroud(result.target,result);
+   player=consumeGhostShroud(queueHitRecoup(player,result.target),result);
    events.push({type:'enemyAttack',source:attacker.id,dead:result.dead??false});
   };
   for(const cast of state.enemyCasts??[]){
@@ -127,7 +128,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  let progression=state.progression,flaskCharges=0;
  const dropped=[];
  const economy=Number.isSafeInteger(state.gold)&&!state.practice&&!deferLoot;
- for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;if(economy&&player.life>0)dropped.push({x:e.x,y:e.y,amount:e.goldReward??1});events.push({type:'kill',target:e.id,experience:e.experienceReward??0,gold:e.goldReward??1,boss:!!e.boss});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
+ for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;if(economy&&player.life>0)dropped.push({x:e.x,y:e.y,amount:e.goldReward??1});events.push({type:'kill',target:e.id,credit:e.killCredit,experience:e.experienceReward??0,gold:e.goldReward??1,boss:!!e.boss});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
  if(flasks){const result=autoFlasks(player,flasks,flaskCharges);flasks=result.flasks;for(const resource of result.used)events.push({type:'flask',resource});}
  let wallet={};
  if(economy&&player.life>0){
