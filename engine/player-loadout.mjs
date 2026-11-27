@@ -1,5 +1,5 @@
 import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.8';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.9';
 import {classAttributes} from './character.mjs';
 import {resourceKeystones} from './keystones.mjs';
 
@@ -45,17 +45,20 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
  const suppression=sum('suppress')+(keys.has('magebane')?Math.floor(dexterity/15)*.01:0);
  const rules={...resource.rules,damageTakenFromManaBeforeLife:keys.has('mindOverMatter')?.4:0,
   resolute:keys.has('resolute'),precise:keys.has('precise'),avatarFire:keys.has('avatarFire'),
-  eldritchBattery:keys.has('eldritchBattery'),wickedWard:keys.has('wickedWard'),acrobatics:keys.has('acrobatics'),
+  ghostReaver:keys.has('ghostReaver'),eldritchBattery:keys.has('eldritchBattery'),wickedWard:keys.has('wickedWard'),acrobatics:keys.has('acrobatics'),
   elementalOverload:keys.has('elementalOverload'),elementalEquilibrium:keys.has('elementalEquilibrium'),
   pointBlank:keys.has('pointBlank'),ancestralBond:keys.has('ancestralBond'),painAttunement:keys.has('painAttunement'),
   lowLifeThreshold:sum('lowLifeThreshold')||.5,fullLifeThreshold:sum('fullLifeThreshold')||1,
   criticalUnique:sum('criticalUnique'),criticalFull:sum('criticalFull'),skillManaRecover:!!sum('skillManaRecover')};
+ const leechConfig={instant:sum('leechInstant')};
+ for(const [resource,name] of [['life','Life'],['mana','Mana'],['energyShield','EnergyShield']])
+  leechConfig[resource]={rate:1+sum('leech'+name+'Rate'),cap:1+sum('leech'+name+'Cap')};
  return {...player,strength,dexterity,intelligence,maximumLife,life:refill?maximumLife:Math.min(player.life,maximumLife),
   maximumMana,mana:refill?maximumMana:Math.min(player.mana,maximumMana),
   maximumEnergyShield,energyShield:refill?maximumEnergyShield:Math.min(player.energyShield??0,maximumEnergyShield),
   esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),
   lifeRegen:keys.has('zealotsOath')?0:regen(),esRegen:keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0,manaRegenMultiplier:Math.max(0,1+up('manaRegen')),manaRegenFlat:sum('manaRegenFlat'),
-  rules,defence:{...player.defence,armour,resistances,maximumResistances,reducedCritExtra:sum('reducedCritExtra'),
+  rules,leechConfig,defence:{...player.defence,armour,resistances,maximumResistances,reducedCritExtra:sum('reducedCritExtra'),
    attackBlock:sum('attackBlock')*(keys.has('glancing')?2:1),spellBlock:sum('spellBlock')*(keys.has('glancing')?2:1),
    blockedDamageFraction:keys.has('glancing')?.65:0,suppressionPrevented:.5+sum('suppressPrevented'),
    suppressionChance:keys.has('acrobatics')?0:suppression,spellDodge:keys.has('acrobatics')?Math.min(.75,suppression*.5):0,suppressionLucky:!!sum('suppressLucky')}};

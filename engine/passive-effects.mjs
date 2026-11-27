@@ -39,6 +39,7 @@ export const keystones=Object.freeze({
  '54307':['acrobatics','移形換影',['法術壓抑機率改為一半數值的法術擊中躲避率','最多 75% 法術躲避機率']],
  '22088':['elementalOverload','元素超載',['各技能在造成暴擊後 8 秒內，元素擊中與異常狀態造成 40% 更多傷害','暴擊不再造成額外傷害，異常狀態不視作暴擊施加']],
  '39085':['elementalEquilibrium','元素之相',['元素擊中移除對應元素曝曬，對其他元素施加 −25% 抗性的曝曬']],
+ '24426':['ghostReaver','靈能護體',['生命偷取改為能量護盾偷取','能量護盾偷取的每秒總回復上限加倍','能量護盾無法充能']],
  '19732':['theAgnostic','不可知論',['移除全部能量護盾','非滿血時每秒犧牲至多 20% 最大魔力以恢復等量生命']]
 });
 export function parsePassiveLine(line){
@@ -67,6 +68,22 @@ export function parsePassiveLine(line){
   const keys=m[2]==='all Elemental'?['fire','cold','lightning']:[types[m[2]]];
   return [keys.map(key=>numeric('maxres:'+key,+m[1]/100)),(translate[m[2]]??'全部元素')+'最大抗性 +'+m[1]+'%'];
  }
+ if((m=line.match(/^(\d+(?:\.\d+)?)% of (Physical Attack|Attack|Spell) Damage Leeched as (Life|Mana|Energy Shield)$/))){
+  const source=m[2]==='Spell'?'spell':'attack',physical=m[2]==='Physical Attack';
+  const names={Life:'生命',Mana:'魔力','Energy Shield':'能量護盾'};
+  const key=physical?'leechPhysical'+m[3].replace(' ',''):'leech'+m[3].replace(' ','');
+  return [[numeric(key+':'+source,+m[1]/100)],m[1]+'% '+(physical?'物理攻擊':source==='spell'?'法術':'攻擊')+'傷害偷取為'+names[m[3]]];
+ }
+ if((m=line.match(/^(\d+(?:\.\d+)?)% of Physical Attack Damage dealt by your Totems is Leeched to you as Life$/)))
+  return [[numeric('leechTotemPhysicalLife',+m[1]/100)],m[1]+'% 你圖騰造成的物理攻擊傷害偷取為你的生命'];
+ if((m=line.match(/^(\d+)% increased (Maximum total (Life|Mana|Energy Shield|Life, Mana and Energy Shield) Recovery per second from Leech|total Recovery per second from (Life|Mana|Energy Shield|Life, Mana, or Energy Shield) Leech)$/))){
+  const cap=!!m[3],kind=cap?'Cap':'Rate',label=(m[3]??m[4]);
+  const parts=label.startsWith('Life,')?['Life','Mana','Energy Shield']:[label];
+  const names={Life:'生命',Mana:'魔力','Energy Shield':'能量護盾'};
+  return [parts.map(type=>numeric('leech'+type.replace(' ','')+kind,+m[1]/100)),parts.map(type=>names[type]).join('／')+'偷取每秒總回復'+(cap?'上限':'速度')+'提高 '+m[1]+'%'];
+ }
+ if((m=line.match(/^(\d+)% of Leech is Instant$/)))
+  return [[numeric('leechInstant',+m[1]/100)],m[1]+'% 偷取立即回復'];
  if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)(?:(%)(?: of)?)? Life per second$/)))
   return [[numeric(m[2]?'lifeRegenPct':'lifeRegen',+m[1]/(m[2]?100:1))],'每秒回復 '+m[1]+(m[2]??'')+' 生命'];
  if((m=line.match(/^\+(\d+)% to (Global )?Critical Strike Multiplier$/)))

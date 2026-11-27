@@ -1,21 +1,21 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.8';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.8';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.8';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.9';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.9';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.9';
 import {ModifierStore} from './engine/modifiers.mjs';
-import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.8';
-import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.8';
-import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.8';
+import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.9';
+import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.9';
+import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.9';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.8';
-import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.8';
-import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.8';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.8';
-import {allocate as allocateTalent,points as talentPoints,classNames} from './engine/passive-tree.mjs?v=0.5.8';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.8';
-import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.8';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.9';
+import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.9';
+import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.9';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.9';
+import {allocate as allocateTalent,points as talentPoints,classNames} from './engine/passive-tree.mjs?v=0.5.9';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.9';
+import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.9';
 
 const $=s=>document.querySelector(s);
 const panel=$('#gem-panel'),toggle=$('#gems'),canvas=$('canvas'),ctx=canvas.getContext('2d'),status=$('#status'),reward=$('#reward');
@@ -72,11 +72,11 @@ function enterTown(){
   if(!canEnterTown(state))return;
   state.progression=grantExperience(state.progression,state.beachXP??0,xpCost);
   state={...state,zone:'town',enemies:[],projectiles:[],fields:[],goldDrops:[],time:0,
-    cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
+    cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else if(state.zone==='trial'&&(state.dead||state.encounter?.phase==='cleared')){
   const route=advanceRoute(state);
   state={...route,zone:'town',dead:false,encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
-    flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
+    flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else return;
  const claimed=claimBattleLoot(townItems,state.gold,state.pendingLoot);
  townItems=claimed.town;state.gold=claimed.gold;state.pendingLoot=claimed.pending;
@@ -310,7 +310,7 @@ function gearIcon(g){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.classList.add('gear-icon');svg.setAttribute('aria-hidden','true');svg.dataset.rarity=g.rarity;
  const use=document.createElementNS(svg.namespaceURI,'use');
- use.setAttribute('href','./assets/gear-icons.svg?v=0.5.8#'+g.slot);svg.append(use);return svg;
+ use.setAttribute('href','./assets/gear-icons.svg?v=0.5.9#'+g.slot);svg.append(use);return svg;
 }
 function gearLabel(g,{detail=false}={}){
  const card=div('','gear-label'),caption=div('','gear-copy');

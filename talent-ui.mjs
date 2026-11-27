@@ -1,4 +1,4 @@
-import {nodes,points,treeStatus,tracePath,classNames,sourceUrl} from './engine/passive-tree.mjs?v=0.5.8';
+import {nodes,points,treeStatus,tracePath,classNames,sourceUrl} from './engine/passive-tree.mjs?v=0.5.9';
 
 export function renderTalentTree(container,{progression,onAllocate}){
  const doc=container.ownerDocument;
