@@ -5,7 +5,7 @@ import {GemInventory} from './engine/gem-inventory.mjs';
 import {beginReward,rewardOptions} from './engine/rewards.mjs';
 import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
-import {compatible} from './engine/skill.mjs';
+import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {resolveLevelChoice} from './engine/progression.mjs';
 
 const $=s=>document.querySelector(s);
@@ -61,7 +61,7 @@ function renderGems(){
  const row=div('','gem-row');
  row.append(heading('目前技能：'+(chosen?chosen.name+' · 等級 '+chosen.level:'普通攻擊'),'h3'));
  if(chosen){
-  const applicable=current.supports.filter(s=>compatible(chosen,s));
+  const applicable=effectiveSupports(chosen,current.supports);
   row.append(div((chosen.tags.includes('spell')?'法術 · 施放速度':'訓練武器：'+(names[trainingWeaponFor(chosen)]??'弓')+' · 攻擊速度')+' · 生效輔助：'+(applicable.map(s=>s.name).join('、')||'無'),'muted'));
  }
  panel.append(row,heading('持有寶石','h3'));

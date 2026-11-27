@@ -13,7 +13,7 @@ async function verify(viewport,mobile){
  await page.clock.install();
  await page.goto(entry,{waitUntil:'networkidle'});
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('等級'));
- assert.match(await page.locator('.brand').innerText(),/v0\.3\.0/);
+ assert.match(await page.locator('.brand').innerText(),/v0\.3\.1/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await page.clock.runFor(2300);
  await page.getByRole('button',{name:'寶石',exact:true}).click();
@@ -37,6 +37,10 @@ async function verify(viewport,mobile){
  await page.getByRole('button',{name:/^高階多重投射輔助 · 等級 1/}).click();
  await page.getByRole('button',{name:'○',exact:true}).first().click();
  assert.match(await page.getByRole('dialog').innerText(),/生效輔助：高階多重投射輔助/);
+ await page.getByRole('button',{name:/^覺醒．高階多重投射輔助 · 等級 1/}).click();
+ await page.getByRole('button',{name:'○',exact:true}).first().click();
+ const supports=page.getByText(/生效輔助：/);
+ assert.match(await supports.innerText(),/生效輔助：覺醒．高階多重投射輔助$/);
  await page.getByRole('button',{name:'關閉',exact:true}).click();
  await page.clock.runFor(1500);
  assert.notEqual(await page.locator('#status').innerText(),paused[0]);

@@ -141,3 +141,35 @@ test('a mine deploys at a target and its detonation does not spend the skill cos
  assert.equal(world.player.mana,player.mana-active.cost);
  assert.ok(world.enemies[0].life<1500);
 });
+test('only the awakened support affects projectiles and receives XP when both tiers are socketed',()=>{
+ const regular=g('greater-multiple-projectiles'),awakened=g('awakened-greater-multiple-projectiles'),active=g('split-arrow');
+ for(const pair of [[regular,awakened],[awakened,regular]]){
+  const inventory=load(active,pair);
+  const hooks=rangerHooks({modifiers:mods,inventory,random:()=>.4});
+  const shot=hooks.onFire(player,t,0);
+  assert.deepEqual(shot.projectile.skill.linkedSupports,[awakened.id]);
+  assert.equal(shot.projectiles.length,active.projectileCount+awakened.additionalProjectiles);
+  inventory.grantExperience(gemXpRequired(1),1);
+  assert.equal(inventory.owned.get(regular.id).level,1);
+  assert.equal(inventory.owned.get(regular.id).experience,0);
+  assert.equal(inventory.owned.get(awakened.id).level,2);
+ }
+});
+test('gem levels scale projectile trails, radiation and fire, cold and chaos ground rates',()=>{
+ const rate=(key,level)=>{
+  const active=activeGems.find(g=>g.sourceKey===key);
+  const hooks=rangerHooks({modifiers:mods,inventory:load({...active,level}),random:()=>.4});
+  const shot=hooks.onFire(player,t,0).projectile;
+  const enemies=[target('inside',0,0)],fields=[];
+  const env={player,enemies,time:1,hit:()=>{},addField:f=>fields.push(f)};
+  if(active.ground){
+   hooks.onTerminate(shot,null,env);
+   hooks.onPulse(fields.find(f=>f.type===active.ground),env);
+  }else hooks.onPulse(shot,env);
+  assert.ok(enemies[0].dots?.[0]?.rate>0,key);
+  return enemies[0].dots[0].rate;
+ };
+ for(const key of ['Soulrend','FireballAltX','OilArrow','CreepingFrostAltX','CausticArrow']){
+  assert.ok(Math.abs(rate(key,5)/rate(key,1)-1.14**4)<1e-9,key);
+ }
+});

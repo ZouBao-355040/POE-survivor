@@ -1,5 +1,5 @@
 import {SocketBoard} from './sockets.mjs';
-import {compatible} from './skill.mjs';
+import {effectiveSupports} from './skill.mjs';
 import {gemProgress,withGemLevel} from './gem-growth.mjs';
 import {chooseReward} from './rewards.mjs';
 export class GemInventory{
@@ -14,11 +14,8 @@ export class GemInventory{
  grantExperience(amount,characterLevel){
   this.validateSelection();if(!this.selected)return [];
   const {active,supports}=this.board.linked(this.selected);
-  const eligible=[active,...supports.filter(s=>compatible(active,s))];
-  const families=new Map();
-  for(const g of eligible){const key=g.family??g.id,old=families.get(key);if(!old||(!old.family&&g.family))families.set(key,g);}
   const ups=[];
-  for(const g of families.values()){
+  for(const g of [active,...effectiveSupports(active,supports)]){
    const next=gemProgress(g,amount,characterLevel);
    this.owned.set(g.id,next);
    for(const slots of Object.values(this.board.groups)){const i=slots.indexOf(g);if(i>=0)slots[i]=next;}

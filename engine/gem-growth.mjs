@@ -13,7 +13,7 @@ export function withGemLevel(g){
  const n=level-1;
  if(g.kind==='active'){
   const m=1.14**n;
-  return {...g,weaponDamageMultiplier:(g.weaponDamageMultiplier??1)*m,effectiveness:(g.effectiveness??1)*m,
+  return {...g,gemDotScale:m,weaponDamageMultiplier:(g.weaponDamageMultiplier??1)*m,effectiveness:(g.effectiveness??1)*m,
    baseSpellDamage:Object.fromEntries(Object.entries(g.baseSpellDamage??{}).map(([k,v])=>[k,v.map(x=>x*m)]))};
  }
  const scale=1+.045*n;

@@ -77,7 +77,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    const base=chosen.pactActive,boost=chosen.pact==='beidat',n=(chosen.level??1)-1;
    const baseSpellDamage=Object.fromEntries(Object.entries(base.baseSpellDamage).map(([k,v])=>[k,v.map(x=>x*(1+.13*n)*1.16)]));
    chosen={...base,id:chosen.id,name:chosen.name,sourceKey:chosen.sourceKey,level:chosen.level,
-    pact:chosen.pact,baseSpellDamage,baseDot:base.baseDot*1.40,cost:chosen.cost||base.cost,radiation:false,lifeCost:.024,radialLaunch:boost,
+    pact:chosen.pact,baseSpellDamage,baseDot:base.baseDot*1.40,gemDotScale:chosen.gemDotScale,cost:chosen.cost||base.cost,radiation:false,lifeCost:.024,radialLaunch:boost,
     projectileCount:boost?5:2,spiral:boost};
   }
   if(chosen.vaalSouls&&souls<chosen.vaalSouls){
@@ -203,7 +203,6 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(active.pulseDecay)mult*=Math.max(.15,1-(p.age??0)/(active.projectileLifetime??.56)*.85);
   const distanceTraveled=p.distanceTravelled??0;
   const pointBlank=p.skill.pointBlank?Math.max(.7,1.3-(distanceTraveled/14)*.6):1;
-  const level=p.skill.active?.level??1;
   let s={...p.skill,damageMultiplier:p.skill.damageMultiplier*mult,
    hitDamageMultiplier:p.skill.hitDamageMultiplier*pointBlank,
    criticalChance:p.phaseDone&&active.sourceKey==='IceSpear'?Math.min(1,p.skill.criticalChance*7):p.skill.criticalChance,
@@ -221,7 +220,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const ailmentMult=mult*(p.skill.physicalChaosMultiplier??1)*(p.skill.projectileDamageMultiplier??1);
   if(active.bleed)added('physical',(result.ailmentBase?.physical??0)*.91*ailmentMult*(target.speed>0?3:1),active.duration??8,'bleed');
   if(active.poisonChance>0&&random()<active.poisonChance)added('chaos',((result.ailmentBase?.physical??0)+(result.ailmentBase?.chaos??0))*.3*ailmentMult,2,'poison',true);
-  if(active.drain){added('chaos',active.baseDot*(1+.08*(level-1))*mult,active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=Math.min(player.maximumLife,player.life+active.baseDot*.025);}
+  if(active.drain){added('chaos',active.baseDot*(active.gemDotScale??1)*mult,active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=Math.min(player.maximumLife,player.life+active.baseDot*.025);}
   if(result.damage?.cold>0&&(result.hit.critical||random()<(active.freezeChance??0)))t={...t,frozenUntil:Math.max(t.frozenUntil??0,time+.28*Math.max(.2,mult))};
   if(result.damage?.lightning>0&&(result.hit.critical||active.guaranteedShock))t={...t,shockedUntil:time+1.5};
   if(active.ensnare&&!p.secondary&&(p.pierce??0)===0&&(p.chain??0)===0&&(p.fork??0)===0)t={...t,chilledUntil:time+1.5};
@@ -350,17 +349,17 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    for(const shot of radial(q,a.shards,Math.max(2,p.speed*.30),p.age*7.5+p.heading))env.spawn(shot);
    return;
   }
-  const radius=p.pulseRadius??p.radius??1.2;
+  const radius=p.pulseRadius??p.radius??1.2,dotScale=a.gemDotScale??1;
   for(const e of targetWithin(env,p,radius)){
    if(p.type==='void')applyDot(p,e,env,'chaos',11, .21,false);
-   else if(p.type==='cold'){const i=env.enemies.indexOf(e);env.enemies[i]={...e,chilledUntil:env.time+.3};if(a.baseDot>0)applyDot(p,e,env,'cold',a.baseDot,.25);}
-   else if(p.type==='fire')applyDot(p,e,env,'fire',Math.max(5,a.baseDot),.27,false);
+   else if(p.type==='cold'){const i=env.enemies.indexOf(e);env.enemies[i]={...e,chilledUntil:env.time+.3};if(a.baseDot>0)applyDot(p,e,env,'cold',a.baseDot*dotScale,.25);}
+   else if(p.type==='fire')applyDot(p,e,env,'fire',Math.max(5,a.baseDot)*dotScale,.27,false);
    else if(p.type==='chaos'){
-    applyDot(p,e,env,'chaos',Math.max(4,a.baseDot)*(1+.08*((a.level??1)-1)),.23,false);
+    applyDot(p,e,env,'chaos',Math.max(4,a.baseDot)*dotScale,.23,false);
     if(a.wither){const i=env.enemies.findIndex(t=>t.id===e.id);env.enemies[i]={...env.enemies[i],witherUntil:env.time+.4};}
    }
-   else if(a.radiation)applyDot(p,e,env,'fire',a.baseDot*(1+.12*((a.level??1)-1)),a.duration,false);
-   else if(a.trailDot)applyDot(p,e,env,'chaos',Math.max(a.baseDot,3),.58,false);
+   else if(a.radiation)applyDot(p,e,env,'fire',a.baseDot*dotScale,a.duration,false);
+   else if(a.trailDot)applyDot(p,e,env,'chaos',Math.max(a.baseDot,3)*dotScale,.58,false);
    else if(a.sourceKey.startsWith('BallLightning')){
     if(!p.skill.pulseHits)p.skill.pulseHits=new Map();
     if((p.skill.pulseHits.get(e.id)??-Infinity)>env.time- .149)continue;

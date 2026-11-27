@@ -19,13 +19,16 @@ export function compatible(active,support){
  }
  return support.appliesTo?.(active)!==false;
 }
-export function compileAttack(active,weapon,supports,modifiers,random,context={}){
+export function effectiveSupports(active,supports){
  const byFamily=new Map();
  for(const s of supports.filter(s=>compatible(active,s))){
   const key=s.family??s.id,old=byFamily.get(key);
   if(!old||(!old.family&&s.family))byFamily.set(key,s);
  }
- const linked=[...byFamily.values()];
+ return [...byFamily.values()];
+}
+export function compileAttack(active,weapon,supports,modifiers,random,context={}){
+ const linked=effectiveSupports(active,supports);
  const product=key=>linked.reduce((n,s)=>n*(s[key]??1),1);
  const sum=key=>linked.reduce((n,s)=>n+(s[key]??0),0);
  const any=key=>linked.some(s=>s[key]);
