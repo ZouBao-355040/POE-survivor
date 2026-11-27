@@ -1,9 +1,9 @@
-import {addHitLeech} from './player-leech.mjs?v=0.5.9';
+import {addHitLeech} from './player-leech.mjs?v=0.5.11';
 import {compileAttack} from './skill.mjs?v=0.5.7';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
-import {paySkillCost,applyDamage} from './resources.mjs?v=0.5.7';
+import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.11';
 import {resolveAttackImpact} from './combat.mjs?v=0.5.7';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
@@ -202,7 +202,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   }else{
    let source=player;
    if(chosen.melee&&env&&distance(player,target)<=2.2){
-    env.hit(target,{...template,secondary:true,skill:skillDamage(skill,1.18)},payment.state);
+    env.hit(target,{...template,secondary:true,hitKind:'melee',skill:skillDamage(skill,1.18)},payment.state);
     if(chosen.fromTarget)source={...player,x:target.x+template.dx*.46,y:target.y+template.dy*.46};
    }
    projectiles=mk(source,target,enemies);
@@ -267,7 +267,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const ailmentMult=mult*(1+chainBonus+pierceBonus)*modifiers.calculate(1,'damageOverTime',p.skill.context)*(p.skill.physicalChaosMultiplier??1)*(p.skill.projectileDamageMultiplier??1);
   if(active.bleed&&!player.rules?.avatarFire)added('physical',(result.ailmentBase?.physical??0)*.91*ailmentMult*(target.speed>0?3:1),active.duration??8,'bleed');
   if(!player.rules?.avatarFire&&active.poisonChance>0&&random()<active.poisonChance)added('chaos',((result.ailmentBase?.physical??0)+(result.ailmentBase?.chaos??0))*.3*ailmentMult,2,'poison',true);
-  if(active.drain&&!player.rules?.avatarFire){added('chaos',active.baseDot*(active.gemDotScale??1)*mult*modifiers.calculate(1,['damageOverTime','chaosDamage'],p.skill.context),active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=Math.min(player.maximumLife,player.life+active.baseDot*.025);}
+  if(active.drain&&!player.rules?.avatarFire){added('chaos',active.baseDot*(active.gemDotScale??1)*mult*modifiers.calculate(1,['damageOverTime','chaosDamage'],p.skill.context),active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=recover(player,'life',active.baseDot*.025).life;}
   if(result.damage?.cold>0&&(result.hit.critical||random()<(active.freezeChance??0)))t={...t,frozenUntil:Math.max(t.frozenUntil??0,time+.28*Math.max(.2,mult))};
   if(result.damage?.lightning>0&&(result.hit.critical||active.guaranteedShock))t={...t,shockedUntil:time+1.5};
   if(active.ensnare&&!p.secondary&&(p.pierce??0)===0&&(p.chain??0)===0&&(p.fork??0)===0)t={...t,chilledUntil:time+1.5};

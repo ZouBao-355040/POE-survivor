@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
 const launchOptions={headless:true};
 if(process.env.CHROMIUM_EXECUTABLE)launchOptions.executablePath=process.env.CHROMIUM_EXECUTABLE;
+if(process.env.BROWSER_PROXY)launchOptions.proxy={server:process.env.BROWSER_PROXY};
 const browser=await chromium.launch(launchOptions);
 const entry=process.env.GAME_URL??'http://127.0.0.1:8123/';
 async function verify(viewport,mobile){
- const page=await browser.newPage({viewport,hasTouch:mobile,isMobile:mobile,deviceScaleFactor:mobile?2:1});
+ const page=await browser.newPage({viewport,hasTouch:mobile,isMobile:mobile,deviceScaleFactor:mobile?2:1,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const failures=[];
  page.on('pageerror',e=>failures.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('404'))failures.push(m.text());});
@@ -26,7 +27,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.10/);
+ assert.match(await text('.brand'),/v0\.5\.11/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
  assert.equal(await text('#campaign-character'),'遊俠');
@@ -332,10 +333,10 @@ async function verify(viewport,mobile){
  await page.close();
 }
 async function verifyBeachRetry(){
- const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.10',async route=>{
+ await page.route('**/play.mjs?v=0.5.11',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
@@ -361,8 +362,44 @@ async function verifyBeachRetry(){
  await page.close();
  console.log('岩灘重試：死亡後保留待結算戰利品、恢復生命，城門仍未開啟。');
 }
+async function verifyVaalPact(){
+ const {allocate,tracePath}=await import('../engine/passive-tree.mjs');
+ let p={characterClass:'Ranger',level:1,passivePoints:20};
+ for(const id of tracePath(p,10808).slice(1,-1))p=allocate(p,id);
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
+ const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/play.mjs?v=0.5.11',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker='updateEquipment({refill:true});guideChoice.close();';
+  const allocation='updateEquipment();return state.progression;';
+  assert.ok(source.includes(marker)&&source.includes(allocation));
+  await route.fulfill({response,body:source.replace(marker,
+   `state.progression=${JSON.stringify(p)};updateEquipment({refill:true});state.enemies=[];guideChoice.close();`)
+   .replace(allocation,'if(id===10808){state.player.life=20;state.flasks.life={charges:21,remaining:2};}'+allocation)});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ await page.locator('#talent-open').click();
+ await page.getByRole('searchbox',{name:'搜尋天賦'}).fill('瓦爾冥約');
+ const node=page.locator('[data-talent-id="10808"]');
+ assert.equal(await node.getAttribute('data-talent-state'),'available');
+ await node.click();
+ assert.match(await page.locator('.talent-details').innerText(),/近戰傷害的生命偷取立即生效/);
+ await page.locator('[data-talent-allocate="10808"]').click();
+ assert.equal(await node.getAttribute('data-talent-state'),'allocated');
+ await page.keyboard.press('Escape');
+ await page.clock.runFor(900);
+ assert.equal(await page.locator('#flask-life').innerText(),'紅水 21/21 · 停用');
+ assert.equal(await page.locator('#flask-life').getAttribute('data-active'),'false');
+ assert.match(await page.locator('#life-num').innerText(),/^20\//);
+ assert.deepEqual(errors,[]);
+ await page.close();
+ console.log('瓦爾冥約：手機天賦實際配置後，紅水停止回復且保留充能。');
+}
 try{
- if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1')await verifyBeachRetry();
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();}
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}

@@ -1,3 +1,5 @@
+import {canRecover} from './resources.mjs?v=0.5.11';
+
 // PoE 1 starter bases. The full-charge enchant is granted to recovery flasks in this game.
 export const flaskBases=Object.freeze({
  life:Object.freeze({name:'小型生命藥劑',capacity:21,cost:7,amount:70,duration:3}),
@@ -13,6 +15,7 @@ export function advanceFlaskRecovery(player,flasks,dt){
  const next={...player},updated={};
  for(const key of kinds){
   const flask=flasks[key],base=flaskBases[key],cap=maximum(player,key);
+  if(!canRecover(player,key)){updated[key]={...flask,remaining:0};continue;}
   const span=Math.min(dt,flask.remaining);
   let remaining=flask.remaining;
   if(span>0&&Number.isFinite(cap)&&Number.isFinite(player[key])&&player.life>0){
@@ -32,7 +35,7 @@ export function autoFlasks(player,flasks,gainedCharges=0){
   const charges=Math.min(base.capacity,flask.charges+gainedCharges);
   // A full corresponding resource refuses use without consuming charges.
   // A refused full flask stays armed; there is no percentage threshold.
-  if(charges===base.capacity&&player[key]<maximum(player,key)){
+  if(canRecover(player,key)&&charges===base.capacity&&player[key]<maximum(player,key)){
    next[key]={charges:charges-base.cost,remaining:base.duration};
    used.push(key);
   }else next[key]={...flask,charges};

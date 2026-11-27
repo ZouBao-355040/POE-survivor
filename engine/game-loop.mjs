@@ -1,14 +1,14 @@
-import {advancePlayerLeech} from './player-leech.mjs?v=0.5.9';
+import {advancePlayerLeech} from './player-leech.mjs?v=0.5.11';
 import {collectGold} from './gem-shop.mjs';
-import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs';
+import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.11';
 import {moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot,integrateDot} from './dot.mjs';
-import {applyDamage} from './resources.mjs';
+import {applyDamage,recover} from './resources.mjs?v=0.5.11';
 import {resolveAttackImpact} from './combat.mjs?v=0.5.7';
 import {rechargeShield} from './recovery.mjs';
-import {agnosticStep} from './keystones.mjs';
+import {agnosticStep} from './keystones.mjs?v=0.5.11';
 import {grantExperience} from './progression.mjs';
 export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,castPlan,manualRequest,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired,deferLoot=false}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
@@ -20,7 +20,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(length){momentum?.move();onMove?.(player.speed*dt);player.x+=direction.x/length*(player.speed*(1+(momentum?.movementSpeed(time)??0)))*dt;player.y+=direction.y/length*(player.speed*(1+(momentum?.movementSpeed(time)??0)))*dt;}
  if(enemyStats&&spawnInterval>0)while(nextSpawn<=time){enemies.push(spawnEnemy('enemy-'+nextId++,player,random()*Math.PI*2,spawnRadius,enemyStats));nextSpawn+=spawnInterval;}
  if(Number.isFinite(player.maximumMana))player.mana=Math.min(player.maximumMana-(player.reservedMana??0),(player.mana??0)+manaRegen*dt);
- if(Number.isFinite(player.maximumLife)&&player.life>0)player.life=Math.min(player.maximumLife-(player.reservedLife??0),player.life+(player.lifeRegen??0)*dt);
+ if(Number.isFinite(player.maximumLife)&&player.life>0&&player.lifeRegen>0)player.life=recover(player,'life',player.lifeRegen*dt).life;
  if(player.maximumEnergyShield>0){
   const previous=player.energyShield??0;
   const since=time+dt-(player.shieldInterruptedAt??0);

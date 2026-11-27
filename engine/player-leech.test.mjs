@@ -91,3 +91,67 @@ test('instant leech, rate and total cap obey the per-hit limit and clear at full
  assert.equal(unreserved.activeLeech,undefined);
  assert.equal(drain({...p,life:0}).activeLeech,undefined);
 });
+
+test('allocating Vaal Pact makes real Lightning Strike melee damage instant, not its projectile damage',async()=>{
+ const {gemById}=await import('./projectile-catalog.mjs'),active=gemById.get('lightning-strike');
+ const {player,modifiers}=load(route(classState,10808));
+ assert.equal(nodes.get(10808).name,'瓦爾冥約');
+ assert.equal(player.rules.vaalPact,true);
+ const hooks=rangerHooks({modifiers,inventory:{current:()=>({active,supports:[]})},random:()=>.8});
+ modifiers.replace('test-leech',[
+  {stat:'leechLife',kind:'flat',value:.4,tags:['attack']},
+  {stat:'leechMana',kind:'flat',value:.4,tags:['attack']}
+ ]);
+ const base={...player,lifeRegen:0,mana:40,attackRange:10};
+ const fire=enemy=>stepWorld({player:base,enemies:[enemy],projectiles:[],time:0},.05,hooks);
+ const melee=fire(foe);
+ assert.ok(melee.player.life>base.life);
+ assert.ok(melee.player.life<=base.life+base.maximumLife*.1);
+ near(pending(melee.player,'life'),0);
+ near(melee.player.mana,base.mana-active.cost);
+ assert.ok(pending(melee.player,'mana')>0);
+ const rangedFoe={...foe,x:3.1}, ranged=fire(rangedFoe);
+ assert.ok(ranged.projectiles.length>0);
+ assert.ok(ranged.projectiles.every(p=>p.hitKind!=='melee'));
+ near(ranged.player.life,base.life);
+ let struck=ranged;
+ for(let i=0;i<5&&!pending(struck.player,'life');i++)struck=stepWorld(struck,.05,hooks);
+ assert.ok(pending(struck.player,'life')>0);
+ near(struck.player.life,base.life);
+ assert.ok(stepWorld(struck,.05,hooks).player.life>base.life);
+ const ghost=impact({...base,rules:{...base.rules,ghostReaver:true},maximumEnergyShield:100},modifiers,{...hit(),hitKind:'melee'});
+ near(ghost.player.life,base.life);
+ near(ghost.player.energyShield,0);
+ assert.ok(pending(ghost.player,'energyShield')>0);
+});
+
+test('Vaal Pact prevents non-leech life recovery without disabling blue flask, mana or explicit retry',async()=>{
+ const {starterFlasks}=await import('./flasks.mjs'),{retryBeach}=await import('./campaign.mjs');
+ const {player}=load(route(classState,10808));
+ const p={...player,lifeRegen:12,rules:{...player.rules,agnostic:true}};
+ const flasks=starterFlasks();flasks.life.remaining=2;
+ const start={zone:'beach',player:p,enemies:[foe],projectiles:[],flasks};
+ const after=stepWorld(start,.05);
+ near(after.player.life,p.life);
+ near(after.player.mana,p.mana-p.maximumMana*.01);
+ assert.deepEqual(after.events.map(e=>e.resource),['mana']);
+ assert.deepEqual(after.flasks.life,{charges:21,remaining:0});
+ assert.ok(stepWorld({...after,player:{...after.player,rules:player.rules}},.05).player.mana>after.player.mana);
+ assert.ok(stepWorld({...start,player:{...p,rules:{}}},.05).player.life>p.life);
+ const retry=retryBeach({...after,dead:true,player:{...after.player,life:0}});
+ near(retry.player.life,p.maximumLife);
+ assert.equal(retry.player.rules.vaalPact,true);
+});
+
+test('Vaal Pact suppresses Essence Drain recovery but the projectile still applies its chaos DOT',async()=>{
+ const {gemById}=await import('./projectile-catalog.mjs'),active=gemById.get('essence-drain');
+ const {player,modifiers}=load(classState);
+ const p={...player,lifeRegen:0}, hooks=rangerHooks({modifiers,active,random:()=>.8});
+ const cast=state=>stepWorld({player:state,enemies:[foe],projectiles:[]},.05,hooks);
+ const run=p=>stepWorld(cast(p),.05,hooks);
+ const normal=run(p), blocked=run({...p,rules:{...p.rules,vaalPact:true}});
+ assert.ok(normal.player.life>p.life);
+ near(blocked.player.life,p.life);
+ assert.ok(blocked.enemies[0].dots.some(d=>d.key==='essence-drain'));
+ near(blocked.enemies[0].life,normal.enemies[0].life);
+});

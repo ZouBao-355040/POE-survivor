@@ -33,7 +33,8 @@ export function paySkillCost(state,cost,lifeRatio=0){
  if(!payment.paid||!life)return payment;
  return {paid:true,state:{...payment.state,life:state.life-life}};
 }
-export function recover(state,key,amount){if(!['life','mana','energyShield'].includes(key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');const max=state[{life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'}[key]];return {...state,[key]:Math.min(max-(key==='life'?(state.reservedLife??0):key==='mana'?(state.reservedMana??0):0),state[key]+amount)};}
+export const canRecover=(state,key)=>key!=='life'||!state.rules?.vaalPact;
+export function recover(state,key,amount){if(!['life','mana','energyShield'].includes(key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');if(!canRecover(state,key))return state;const max=state[{life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'}[key]];return {...state,[key]:Math.min(max-(key==='life'?(state.reservedLife??0):key==='mana'?(state.reservedMana??0):0),state[key]+amount)};}
 
 export const mindOverMatterFraction=.4;
 export const eldritchBatteryRechargeMultiplier=.5;

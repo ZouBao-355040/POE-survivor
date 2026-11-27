@@ -27,7 +27,8 @@ export function addHitLeech(player,shot,result,modifiers){
   if(!(amount>0&&maximum>0&&current<cap))continue;
   const pool=new LeechPool(resource);
   pool.instances=[...(player.activeLeech?.[resource]??[])];
-  const size=Math.min(amount,maximum*.1),instant=size*Math.min(1,Math.max(0,cfg.instant??0));
+  const instantFraction=key==='life'&&player.rules?.vaalPact&&shot.hitKind==='melee'?1:Math.min(1,Math.max(0,cfg.instant??0));
+  const size=Math.min(amount,maximum*.1),instant=size*instantFraction;
   if(instant>0)player[key]=Math.min(cap,current+instant);
   if((player[key]??current)<cap)pool.add(size-instant,1,maximum,{instanceRate:.02*(cfg[resource]?.rate??1)});
   else pool.instances=[];
