@@ -8,9 +8,9 @@ export function advanceCombat(state,dt,{skill,basicAttack,modifiers,manaRegen=0,
  while(remaining>0&&target.life>0&&attacker.life>0){
  if(cooldown>=remaining){recover(remaining);cooldown-=remaining;remaining=0;break;}
  recover(cooldown);remaining-=cooldown;
- let selected=skill;
+ let selected=typeof skill==='function'?skill():skill;
  let result=attack({attacker,target,skill:selected,modifiers,rolls:rolls(),context});
- if(!result.performed){selected=basicAttack;result=attack({attacker,target,skill:selected,modifiers,rolls:rolls(),context});}
+ if(!result.performed){selected=typeof basicAttack==='function'?basicAttack():basicAttack;result=attack({attacker,target,skill:selected,modifiers,rolls:rolls(),context});}
  if(!result.performed)throw new Error('Basic attack must be affordable');
  if(!(selected.attacksPerSecond>0&&Number.isFinite(selected.attacksPerSecond)))throw new Error('Invalid attack rate');
  attacker=result.attacker;target=result.target;
