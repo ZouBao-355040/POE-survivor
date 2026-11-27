@@ -1,11 +1,11 @@
 import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './conversion.mjs';
 import {resolveHit} from './hit.mjs';
 import {mitigateHit} from './defence.mjs?v=0.5.7';
-import {applyDamage,paySkillCost} from './resources.mjs?v=0.5.7';
+import {applyDamage,paySkillCost} from './resources.mjs?v=0.5.14';
 import {igniteFromPackets} from './ignite.mjs';
 export function attack({attacker,target,skill,modifiers,rolls,context={}}){
  context={...context,...(skill.context??{})};
- const payment=paySkillCost(attacker,skill.cost??0,skill.lifeCostRatio);
+ const payment=paySkillCost(attacker,skill.costs??skill.cost??0,skill.lifeCostRatio);
  if(!payment.paid)return {performed:false,attacker,target};
  return resolveAttackImpact({attacker:payment.state,target,skill,modifiers,rolls,context});
 }

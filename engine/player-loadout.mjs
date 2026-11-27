@@ -1,8 +1,8 @@
 import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.13';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.14';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
-import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.13';
-import {resourceKeystones} from './keystones.mjs?v=0.5.12';
+import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.14';
+import {resourceKeystones} from './keystones.mjs?v=0.5.14';
 
 const baseline=['life','mana','es','evasion','accuracy','armour','move','manaRegen','lifeRegen','lifeRegenPct','esRegenPct','manaRegenFlat',
  'esRecharge','suppress','suppressLucky','suppressPrevented','attackBlock','spellBlock','strength','dexterity','intelligence','lifeWithoutBodyLife',

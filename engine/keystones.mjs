@@ -1,4 +1,4 @@
-import {recover} from './resources.mjs?v=0.5.12';
+import {recover} from './resources.mjs?v=0.5.14';
 
 export function resourceKeystones(stats,keys=[]){
  const k=new Set(keys),s={...stats},rules={};

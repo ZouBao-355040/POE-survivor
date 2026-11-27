@@ -21,15 +21,25 @@ export function applyDamage(state,damage,rules={}){
 }
 export function payManaCost(state,cost,{eldritchBattery=false}={}){
  if(!Number.isFinite(cost)||cost<0)throw new RangeError('Invalid cost');
- if(state.mana+(eldritchBattery?state.energyShield:0)<cost)return {paid:false,state};
- const next={...state};const es=eldritchBattery?Math.min(next.energyShield,cost):0;next.energyShield=(next.energyShield??0)-es;next.mana-=cost-es;return {paid:true,state:next};
+ const shield=eldritchBattery?Math.max(0,state.energyShield??0):0;
+ const mana=Math.max(0,state.mana??0);
+ if(mana+shield<cost)return {paid:false,state};
+ const next={...state};const es=Math.min(shield,cost);next.energyShield=(next.energyShield??0)-es;next.mana=mana-(cost-es);return {paid:true,state:next};
 }
 export function paySkillCost(state,cost,lifeRatio=0){
- if(!Number.isFinite(cost)||cost<0)throw new RangeError('Invalid cost');
- if(state.rules?.bloodMagic)lifeRatio=1;
- const life=Math.min(cost,Math.floor(cost*lifeRatio));
+ const bloodMagic=state.rules?.bloodMagic;
+ let life,mana;
+ if(cost&&typeof cost==='object'){
+  life=bloodMagic?cost.bloodMagicLife:cost.life;
+  mana=bloodMagic?0:cost.mana;
+ }else{
+  if(!Number.isFinite(cost)||cost<0)throw new RangeError('Invalid cost');
+  life=bloodMagic?cost:Math.min(cost,Math.floor(cost*clamp(lifeRatio,0,1)));
+  mana=cost-life;
+ }
+ if(!Number.isFinite(life)||life<0||!Number.isFinite(mana)||mana<0)throw new RangeError('Invalid cost');
  if(life>0&&life>=state.life)return {paid:false,state};
- const payment=payManaCost(state,cost-life,{eldritchBattery:!!state.rules?.eldritchBattery});
+ const payment=payManaCost(state,mana,{eldritchBattery:!!state.rules?.eldritchBattery});
  if(!payment.paid||!life)return payment;
  return {paid:true,state:{...payment.state,life:state.life-life}};
 }

@@ -1,11 +1,11 @@
-import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.13';
-import {addHitLeech} from './player-leech.mjs?v=0.5.13';
-import {compileAttack} from './skill.mjs?v=0.5.7';
+import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.14';
+import {addHitLeech} from './player-leech.mjs?v=0.5.14';
+import {compileAttack} from './skill.mjs?v=0.5.14';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
-import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.12';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.7';
+import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.14';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.14';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
@@ -103,11 +103,11 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const deployed=group?env?.activeFields?.(f=>f.totemGroup===group)??[]:[];
   const full=deployed.length>=(ballista?2:1)+(group&&player.rules?.ancestralBond?1:0);
   if(full&&!cast?.manual)return {player,cooldown:.15,projectiles:[],skill:chosen.id,deferred:true};
-  let payment=paySkillCost(player,skill.cost,skill.lifeCostRatio);
+  let payment=paySkillCost(player,skill.costs);
   if(!payment.paid&&cast)return null;
   if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(chosen,weapon,[],modifiers,random,{...ctx,tags:['bow']});payment=paySkillCost(player,0);}
   if(!payment.paid||distance(player,target)<1e-9)return null;
-  if(chosen!==basicBowAttack&&player.rules?.skillManaRecover&&random()<.1)payment.state.mana=Math.min(player.maximumMana,payment.state.mana+player.maximumMana*.1);
+  if(chosen!==basicBowAttack&&player.rules?.skillManaRecover&&random()<.1)payment.state.mana=recover(payment.state,'mana',(player.maximumMana??0)*.1).mana;
   if(chosen.vaalSouls){souls-=chosen.vaalSouls;soulBlockedUntil=time+3;}
   if(chosen.lifeCost)payment.state.life=Math.max(1,payment.state.life-payment.state.maximumLife*chosen.lifeCost);
   if(chosen.shell){

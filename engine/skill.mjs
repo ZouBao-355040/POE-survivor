@@ -1,3 +1,4 @@
+import {skillCosts} from './skill-cost.mjs?v=0.5.14';
 import {rollWeaponDamage} from './weapon.mjs';
 
 function typeExpression(expr,types){
@@ -56,12 +57,12 @@ export function compileAttack(active,weapon,supports,modifiers,random,context={}
  const criticalBase=spell?(active.spellCriticalChance??.05):weapon.criticalChance;
  const conversion=[...(active.conversion??[])];
  if(sum('gainFire'))conversion.push({from:'physical',to:'fire',kind:'extra',fraction:sum('gainFire')});
+ const costs=skillCosts(active,Math.floor(product('costMultiplier')*1e4+1e-9)/1e4,modifiers,ctx);
  return {source:spell?'spell':'attack',id:active.id,active,context:ctx,baseDamage,effectiveness,conversion,
   attackSpeedPerIncrease:speedSlope,attacksPerSecond:modifiers.calculate(speedBase,rateKey,ctx)+supportIncrease*speedSlope,
   baseCriticalChance:criticalBase+(active.critBonus??0),
   criticalChance:Math.min(1,modifiers.calculate(criticalBase+(active.critBonus??0),'criticalChance',ctx)),criticalMultiplier:modifiers.calculate(1.5,'criticalMultiplier',ctx),
-  lifeCostRatio:modifiers.calculate(0,'lifeCostRatio',ctx),noBlock:modifiers.calculate(0,'noBlock',ctx)>0,
-  cost:Math.max(0,Math.floor(modifiers.calculate((active.cost??0)*product('costMultiplier'),'manaCost',ctx)/(1+modifiers.calculate(0,'manaEfficiency',ctx)))),
+  costs,cost:costs.mana,noBlock:modifiers.calculate(0,'noBlock',ctx)>0,
   increasedProjectileSpeed:sum('increasedProjectileSpeed'),projectileSpeedMultiplier:product('projectileSpeedMultiplier'),
   increasedProjectileDamage:sum('increasedProjectileDamage'),additionalProjectiles:sum('additionalProjectiles'),
   pierce:active.noPierce?0:(active.pierce??0)+sum('pierce')+modifiers.calculate(0,'pierce',ctx),extraPierce:active.noPierce?0:sum('pierce')+modifiers.calculate(0,'pierce',ctx),fork:sum('fork'),chain:Math.floor(((active.chain??0)+sum('chain'))*product('chainMultiplier')),

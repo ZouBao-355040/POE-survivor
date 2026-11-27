@@ -146,14 +146,16 @@ export function parsePassiveLine(line){
   return [[numeric('manaRegenFlat',+m[1])],'每秒回復 '+m[1]+' 魔力'];
  if((m=line.match(/^(\d+)% (more|less) Projectile Speed$/)))
   return [[numeric('projectileSpeed',+m[1]/100*(m[2]==='more'?1:-1),'more')],'投射物速度 '+m[1]+'% '+(m[2]==='more'?'更多':'更少')];
- if((m=line.match(/^(\d+)% increased (Mana Cost Efficiency|Cost Efficiency of (Attacks|Spells))$/)))
-  return [[numeric('manaEfficiency'+(m[3]?':'+(m[3]==='Attacks'?'attack':'spell'):''),+m[1]/100)],'成本效率提高 '+m[1]+'%'+(m[3]?'（'+(m[3]==='Attacks'?'攻擊':'法術')+'）':'')];
+ if((m=line.match(/^(\d+)% increased (Mana )?Cost Efficiency(?: of (Attacks|Spells))?$/))){
+  const stat=m[2]?'manaEfficiency':'costEfficiency', tag=m[3]==='Attacks'?'attack':m[3]==='Spells'?'spell':'';
+  return [[numeric(stat+(tag?':'+tag:''),+m[1]/100)],(tag==='attack'?'攻擊':tag==='spell'?'法術':'')+(m[2]?'魔力':'技能')+'消耗效率提高 '+m[1]+'%'];
+ }
  if((m=line.match(/^(\d+)% increased Projectile Damage per (\d+) Dexterity$/)))
   return [[numeric('damagePerDex',+m[1]/100/+m[2])],'每 '+m[2]+' 點敏捷使投射物傷害提高 '+m[1]+'%'];
  if(line==='You count as on Low Life while at 55% of maximum Life or below')return [[numeric('lowLifeThreshold',.55)],'生命不超過 55% 時視為低血'];
  if(line==='You count as on Full Life while at 90% of maximum Life or above')return [[numeric('fullLifeThreshold',.9)],'生命至少 90% 時視為滿血'];
  if(line==='Skills Cost Life instead of 15% of Mana Cost')return [[numeric('lifeCostRatio',.15)],'技能 15% 的魔力消耗改為生命消耗'];
- if(line==='Attack Skills Cost Life instead of 20% of Mana Cost')return [[numeric('lifeCostRatio:attack',.2)],'攻擊技能 20% 的魔力消耗改為生命消耗'];
+ if((m=line.match(/^Attack Skills Cost Life instead of (\d+)% of Mana Cost$/)))return [[numeric('lifeCostRatio:attack',+m[1]/100)],'攻擊技能 '+m[1]+'% 的魔力消耗改為生命消耗'];
  if(line==='Monsters cannot Block your Attacks')return [[numeric('noBlock:attack',1)],'怪物無法格擋你的攻擊'];
  if(line==='Prevent +3% of Suppressed Spell Damage')return [[numeric('suppressPrevented',.03)],'額外防止 3% 被壓抑的法術傷害'];
  if(line==='Chance to Suppress Spell Damage is Lucky')return [[numeric('suppressLucky',1)],'法術壓抑機率為幸運'];

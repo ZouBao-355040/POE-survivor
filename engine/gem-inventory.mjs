@@ -1,5 +1,5 @@
 import {SocketBoard} from './sockets.mjs?v=0.5.4';
-import {effectiveSupports} from './skill.mjs';
+import {effectiveSupports} from './skill.mjs?v=0.5.14';
 import {gemProgress,withGemLevel} from './gem-growth.mjs';
 import {chooseReward} from './rewards.mjs';
 export const createGemInstance=gem=>({...gem,instanceId:gem.id,level:gem.level??1,experience:0});
