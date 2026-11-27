@@ -35,7 +35,29 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  onTick?.(env,dt);
  projectiles.push(...spawned);
 
- if(enemyModifiers)for(const e of enemies){if(e.life<=0||player.life<=0||!e.attack||e.frozenUntil>time)continue;e.attackCooldown=Math.max(0,(e.attackCooldown??0)-dt);if(e.attackCooldown===0&&Math.hypot(e.x-player.x,e.y-player.y)<=(e.attackRange??.5)){const result=resolveAttackImpact({attacker:e.blindedUntil>time?{...e,accuracy:e.accuracy*.7}:e,target:player,skill:e.attack,modifiers:enemyModifiers,rolls:{critical:random(),confirmation:random(),block:random(),ignite:random()}});player=result.target;e.attackCooldown=1/e.attack.attacksPerSecond;events.push({type:'enemyAttack',source:e.id,dead:result.dead??false});}}
+ const enemyCasts=[];
+ if(enemyModifiers){
+  const rollHit=(attacker,skill)=>{
+   const result=resolveAttackImpact({attacker,target:player,skill,modifiers:enemyModifiers,
+    rolls:{critical:random(),confirmation:random(),block:random(),ignite:random()}});
+   player=result.target;
+   events.push({type:'enemyAttack',source:attacker.id,dead:result.dead??false});
+  };
+  for(const cast of state.enemyCasts??[]){
+   if(cast.impactAt>time+dt){enemyCasts.push(cast);continue;}
+   if(player.life>0&&Math.hypot(cast.x-player.x,cast.y-player.y)<=cast.radius)
+    rollHit({id:cast.source},{source:'spell',baseDamage:{fire:cast.damage},criticalChance:0,igniteChance:0});
+  }
+  for(const e of enemies){
+   if(e.life<=0||player.life<=0||!e.attack||e.frozenUntil>time)continue;
+   e.attackCooldown=Math.max(0,(e.attackCooldown??0)-dt);
+   if(e.attackCooldown!==0||Math.hypot(e.x-player.x,e.y-player.y)>(e.attackRange??.5)+1e-8)continue;
+   e.attackCooldown=1/e.attack.attacksPerSecond;
+   if(e.fireCast){
+    enemyCasts.push({x:player.x,y:player.y,source:e.id,impactAt:time+dt+e.fireCast.windup,...e.fireCast});
+   }else rollHit(e.blindedUntil>time?{...e,accuracy:e.accuracy*.7}:e,e.attack);
+  }
+ }else enemyCasts.push(...(state.enemyCasts??[]));
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
  const target=nearestEnemy(player,enemies,player.attackRange??10);
  if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time,enemies,env);if(shot){player=shot.player??player;projectiles.push(...(shot.projectiles??[shot.projectile]));cooldown=shot.cooldown;events.push({type:'fire',target:target.id,skill:shot.skill});}}
@@ -50,5 +72,5 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
   wallet={gold:state.gold+collected.amount,goldDrops:collected.remaining};
   if(collected.amount>0)events.push({type:'gold',amount:collected.amount});
  }
- return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,time:time+dt,nextSpawn,nextId,cooldown,events};
+ return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,...(enemyCasts.length||state.enemyCasts?{enemyCasts}:{}),time:time+dt,nextSpawn,nextId,cooldown,events};
 }

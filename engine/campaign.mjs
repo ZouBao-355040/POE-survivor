@@ -51,9 +51,20 @@ export function beginTrial(state,rules=coastRules,mapMods){
  if(!Number.isSafeInteger(maxActive)||maxActive<1||!Number.isSafeInteger(refillAt)||refillAt<0||refillAt>=maxActive)
   throw new RangeError('Active ceiling must exceed the non-negative refill line');
  return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,dead:false,
-  paused:false,projectiles:[],enemies:[],fields:[],goldDrops:[],events:[],
+  paused:false,projectiles:[],enemies:[],fields:[],enemyCasts:[],goldDrops:[],events:[],
   player:{...state.player,x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
    duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null}};
+}
+// PoE Coast families: Cannibal, Cannibal Fire-eater, Shore Crab and Fire Fury.
+const coastFamilies=['cannibal','cannibal','fire-eater','cannibal','crab','cannibal'];
+function coastNormal(id,x,y,band,i){
+ const family=coastFamilies[(i+Math.floor(band/2))%coastFamilies.length];
+ const life=Math.floor(band/3)*3;
+ if(family==='fire-eater')return shoreEnemy(id,x,y,19+life,{family,name:'食人族噬火者',speed:1.48,range:5.6,attacksPerSecond:.33,
+  radius:.37,experienceReward:6,fireCast:{damage:7,radius:1.12,windup:.82}});
+ if(family==='crab')return shoreEnemy(id,x,y,27+life,{family,name:'沿岸蟹',speed:1.45,range:.7,physical:5,
+  radius:.46,experienceReward:6,defence:{armour:5}});
+ return shoreEnemy(id,x,y,19+life,{family,name:'食人族',speed:2.02+.08*(i%3),physical:4+Math.floor(band/4),experienceReward:6});
 }
 function refill(state,random){
  const e=state.encounter;
@@ -70,15 +81,15 @@ function refill(state,random){
   const x=state.player.x+Math.cos(angle)*11,y=state.player.y+Math.sin(angle)*11;
   for(let i=0;i<groupLength;i++){
    const n=e.generated+additions.length,band=Math.floor(n/e.perGroup),side=(i-(groupLength-1)/2)*.62;
-   additions.push(shoreEnemy('coast-'+n,x+side*Math.sin(angle),y-side*Math.cos(angle),17+Math.floor(band/3)*3,
-    {speed:1.58+.07*(i%3),physical:3+Math.floor(band/4),experienceReward:6}));
+   additions.push(coastNormal('coast-'+n,x+side*Math.sin(angle),y-side*Math.cos(angle),band,n%e.perGroup));
   }
  }
  return {...state,enemies:[...state.enemies,...additions],encounter:{...e,arrivals,generated:e.generated+additions.length}};
 }
 function createCoastBoss(player){
- return shoreEnemy(coastBossId,player.x+8,player.y,156,{boss:true,name:'怒炎之使',speed:1.58,
-  range:1.4,physical:12,attacksPerSecond:.65,radius:.76,experienceReward:23,goldReward:9,flaskChargeReward:11});
+ return shoreEnemy(coastBossId,player.x+8,player.y,178,{boss:true,name:'怒炎之使',speed:1.64,
+  range:6.8,physical:12,attacksPerSecond:.39,radius:.76,experienceReward:23,goldReward:9,flaskChargeReward:11,
+  fireCast:{damage:16,radius:2.1,windup:.9}});
 }
 function launchBoss(state,reason){
  const e=state.encounter,enemies=[...state.enemies];
@@ -105,7 +116,7 @@ export function stepTrial(state,dt,options={}){
  }
  if(encounter.phase==='boss'&&next.events.some(event=>event.type==='kill'&&event.target===coastBossId)){
   const gold=next.gold+(next.goldDrops??[]).reduce((total,item)=>total+item.amount,0);
-  return {...next,gold,goldDrops:[],progression:{...next.progression,pendingChoices:0},
+  return {...next,gold,goldDrops:[],enemyCasts:[],progression:{...next.progression,pendingChoices:0},
    encounter:{...encounter,phase:'cleared',heldEnemy:null},events:[...next.events,{type:'trial-cleared'}]};
  }
  if(encounter.phase==='boss'&&encounter.heldEnemy&&next.enemies.length<encounter.maxActive){
