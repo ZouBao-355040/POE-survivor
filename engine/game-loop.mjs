@@ -3,7 +3,8 @@ import {advanceProjectile} from './projectile.mjs';
 import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot} from './dot.mjs';
 import {applyDamage} from './resources.mjs';
-export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,momentum,manaRegen=0}={}){
+import {resolveAttackImpact} from './combat.mjs';
+export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,momentum,manaRegen=0,enemyModifiers}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
  let player={...state.player},enemies=state.enemies.map(e=>({...e})),projectiles=[],events=[];
  let time=state.time??0,nextSpawn=state.nextSpawn??0,nextId=state.nextId??0;
@@ -14,8 +15,9 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  enemies=enemies.map(e=>{let target=e;for(const i of igniteIntervals(e.ignites??[],time,time+dt)){if(target.life<=0)break;const rates=mitigateDot({fire:i.rate},target.defence);target=applyDamage(target,Object.fromEntries(Object.entries(rates).map(([k,v])=>[k,v*(i.end-i.start)])),target.rules).state;}return {...target,ignites:(e.ignites??[]).filter(i=>i.end>time+dt)};});
  enemies=enemies.map(e=>e.life>0?moveToward(e,player,e.speed??0,dt,e.attackRange??.5):e);
  for(const p of state.projectiles){const result=advanceProjectile(p,dt,enemies);if(result.hitId){const i=enemies.findIndex(e=>e.id===result.hitId);if(onImpact)enemies[i]=onImpact(enemies[i],p,time+dt);events.push({type:'impact',target:result.hitId});}if(!result.expired)projectiles.push(result.projectile);}
+ if(enemyModifiers)for(const e of enemies){if(e.life<=0||player.life<=0||!e.attack)continue;e.attackCooldown=Math.max(0,(e.attackCooldown??0)-dt);if(e.attackCooldown===0&&Math.hypot(e.x-player.x,e.y-player.y)<=(e.attackRange??.5)){const result=resolveAttackImpact({attacker:e,target:player,skill:e.attack,modifiers:enemyModifiers,rolls:{critical:random(),confirmation:random(),block:random(),ignite:random()}});player=result.target;e.attackCooldown=1/e.attack.attacksPerSecond;events.push({type:'enemyAttack',source:e.id,dead:result.dead??false});}}
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
  const target=nearestEnemy(player,enemies,player.attackRange??10);
- if(cooldown===0&&target&&onFire){const shot=onFire(player,target,time);if(shot){player=shot.player??player;projectiles.push(shot.projectile);cooldown=shot.cooldown;events.push({type:'fire',target:target.id});}}
- return {...state,player,enemies:enemies.filter(e=>e.life>0),projectiles,time:time+dt,nextSpawn,nextId,cooldown,events};
+ if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time);if(shot){player=shot.player??player;projectiles.push(shot.projectile);cooldown=shot.cooldown;events.push({type:'fire',target:target.id});}}
+ return {...state,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,time:time+dt,nextSpawn,nextId,cooldown,events};
 }
