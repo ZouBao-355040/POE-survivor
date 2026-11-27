@@ -25,3 +25,17 @@ export class AilmentPool {
  }
  effect(type,time){return Math.max(0,...this.active(time).filter(x=>x.type===type).map(x=>x.effect??0));}
 }
+
+// Baseline alternate ailment coefficients; verify against target PoE patch.
+export function alternateEffect(type,damage,threshold,multiplier=1){
+ const rules={scorch:[.5,.3,.02],brittle:[.25,.06,.002],sap:[.5,.2,.02]};
+ if(!rules[type]||threshold<=0)throw new Error('Invalid alternate ailment');
+ const [coefficient,cap,min]=rules[type];
+ const effect=coefficient*Math.pow(Math.max(0,damage)/threshold,.4)*multiplier;
+ return effect<min?0:clamp(effect,0,cap);
+}
+export function freezeDuration(coldDamage,threshold,multiplier=1){
+ if(threshold<=0)throw new Error('Invalid threshold');
+ const duration=6*Math.min(1,Math.max(0,coldDamage)/threshold)*multiplier;
+ return duration<.3?0:duration;
+}
