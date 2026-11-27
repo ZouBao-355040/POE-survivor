@@ -1,18 +1,21 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.5';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.5';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.5';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.6';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.6';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.6';
 import {ModifierStore} from './engine/modifiers.mjs';
-import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.5';
-import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.5';
-import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.5';
+import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.6';
+import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.6';
+import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.6';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.5';
-import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedStats,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.5';
-import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.5';
-import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.5';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.6';
+import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.6';
+import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.6';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.6';
+import {allocateTalent,talentPoints} from './engine/act-one-talents.mjs?v=0.5.6';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.6';
+import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.6';
 
 const $=s=>document.querySelector(s);
 const panel=$('#gem-panel'),toggle=$('#gems'),canvas=$('canvas'),ctx=canvas.getContext('2d'),status=$('#status'),reward=$('#reward');
@@ -46,7 +49,7 @@ const ownedOrStored=()=>[...inventory.ownedIds(),...townItems.storedGems.keys()]
 function reset(askGuide=true){
  inventory=new GemInventory();
  inventory.acquire(gemById.get('burning-arrow'));inventory.acquire(gemById.get('momentum'));
- townItems=newTownServices({starter:true});craftSelection={item:null,category:'basic',entry:null,family:null};inventory.setLayout(equippedSocketLayout(townItems));modifiers.remove('town-gear');guide=false;
+ townItems=newTownServices({starter:true});craftSelection={item:null,category:'basic',entry:null,family:null};inventory.setLayout(equippedSocketLayout(townItems));modifiers.remove('town-gear');modifiers.remove('talents');guide=false;
  picked=null;tab='owned';if(panel.open)panel.close();
  if(townDialog.open)townDialog.close();if(guideChoice.open)guideChoice.close();if(gameMenu.open)gameMenu.close();
  clearInput();facing={x:1,y:0};acc=0;shopTab='active';shopSearch='';shopCompatible=true;hooks=rangerHooks({modifiers,inventory});
@@ -79,7 +82,7 @@ function enterTown(){
   const loot=claimed.hillock;
   state.openingLoot='西拉克戰利品：'+loot.gold+' 金幣'+(loot.item?'、'+loot.item.name+'、'+loot.orb:'');
  }
- state.lootReceipt=claimed.claimedGold||claimed.claimedOrbs||claimed.claimedGems?'回城已收取：'+claimed.claimedGold+' 金幣、'+claimed.claimedOrbs+' 顆通貨、'+claimed.claimedGems+' 顆寶石'+(claimed.hillock?.item?'、1 件裝備':''):'';
+ state.lootReceipt=claimed.claimedGold||claimed.claimedOrbs||claimed.claimedGems||claimed.claimedGear?'回城已收取：'+claimed.claimedGold+' 金幣、'+claimed.claimedOrbs+' 顆通貨、'+claimed.claimedGems+' 顆寶石'+(claimed.claimedGear?'、'+claimed.claimedGear+' 件裝備':''):'';
  acc=0;clearInput();$('#toast').textContent='';
 }
 function startStage(route){
@@ -92,10 +95,7 @@ function leaveTown(){if(state.zone==='town'&&!state.progression.pendingChoices)s
 function nextZone(){if(state.progression.pendingChoices)return;const route=advanceRoute(state);if(route!==state)startStage(route);}
 function updateEquipment(){
  inventory.setLayout(equippedSocketLayout(townItems));
- const stats=equippedStats(townItems),p=state.player,maximumLife=70+stats.life,maximumMana=58+stats.mana;
- modifiers.replace('town-gear',stats.attack?[{stat:'damage',kind:'increased',value:stats.attack,tags:['attack']}]:[]);
- state.player={...p,maximumLife,life:Math.min(p.life,maximumLife),maximumMana,mana:Math.min(p.mana,maximumMana),
-  accuracy:90+stats.accuracy,evasion:15+stats.evasion,speed:4*stats.speed,defence:{...p.defence,resistances:stats.resistances}};
+ state.player=applyLoadout(state.player,townItems,state.progression,modifiers,{refill:state.zone==='town'});
 }
 $('#town-entry').onclick=enterTown;
 $('#beach-retry').onclick=()=>{
@@ -308,12 +308,13 @@ function gearIcon(g){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.classList.add('gear-icon');svg.setAttribute('aria-hidden','true');svg.dataset.rarity=g.rarity;
  const use=document.createElementNS(svg.namespaceURI,'use');
- use.setAttribute('href','./assets/gear-icons.svg?v=0.5.5#'+g.slot);svg.append(use);return svg;
+ use.setAttribute('href','./assets/gear-icons.svg?v=0.5.6#'+g.slot);svg.append(use);return svg;
 }
 function gearLabel(g,{detail=false}={}){
  const card=div('','gear-label'),caption=div('','gear-copy');
  const title=document.createElement('strong');title.textContent=g.name;
  caption.append(title,div(gearSlots[g.slot]+' · '+g.rarity+(townItems.equipped[g.slot]===g.id?' · 穿戴中':''),'muted'));
+ if(detail&&g.dropArea)caption.append(div('掉落：'+g.dropArea+' · '+g.dropSource,'muted'));
  if(detail)caption.append(div(itemAffix(g)+(g.affixes?.length?' · '+g.affixes.map(affixText).join('、'):''),'muted'));
  card.append(gearIcon(g),caption);return card;
 }
@@ -340,13 +341,14 @@ function renderGambler(){
  for(const [slot,label] of Object.entries(gearSlots)){
   const entry=button('賭'+label+' · '+wagerPrice+' 金幣',()=>{
    if(state.zone!=='town')return;
-   const result=rollGear(townItems,state.gold,slot);state.gold=result.gold;townItems=result.town;
+   const result=rollGear(townItems,state.gold,slot,Math.random,3+Math.min(actOne.length-1,state.routeIndex??0));state.gold=result.gold;townItems=result.town;
    renderGambler();
   });
   entry.disabled=state.gold<wagerPrice||townItems.gear.length>=satchelLimit;
   rolls.append(entry);
  }
  townDialog.append(rolls,heading('裝備背包','h3'));
+ if(townItems.gear.length>=satchelLimit)townDialog.append(div('背包已滿，整理後才能再向賭商購買。掉落戰利品仍會保留。','muted'));
  if(townItems.gear.length===0)townDialog.append(div('目前沒有裝備。','muted'));
  for(const g of townItems.gear)renderGearRow(g,renderGambler);
 }
@@ -412,18 +414,19 @@ function renderCraft({message='',focus}={}){
   if(expanded)for(const tier of tiers)addEntry({...tier,name:tier.tier?'T'+tier.tier:tier.name},rail);
  }
  if(item){
-  sheet.append(gearLabel(item),heading('底材屬性','h3'),div(itemAffix(item),'muted'));
+  sheet.append(gearLabel(item),div('物品等級 '+(item.itemLevel??1),'muted'),heading('底材屬性','h3'),div(itemAffix(item),'muted'));
   for(const [side,label] of [['prefix','前綴'],['suffix','後綴']]){
    const lines=(item.affixes??[]).filter(a=>a.side===side);
    const cap=item.rarity==='稀有'?3:item.rarity==='魔法'?1:0;
    sheet.append(heading(label+' '+lines.length+'／'+cap,'h3'));
    if(!lines.length)sheet.append(div('無','muted'));
-   for(const line of lines)sheet.append(div(affixText(line),'craft-affix'));
+   for(const line of lines)sheet.append(div('T'+(line.tier??3)+' · '+affixText(line),'craft-affix'));
   }
   const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='可能出現的詞綴';details.append(summary);
   for(const [side,label] of [['prefix','前綴'],['suffix','後綴']]){
    details.append(heading(label,'h3'));
-   for(const line of affixCatalog(item.slot).filter(a=>a.side===side))details.append(div(line.text,'muted'));
+   for(const line of affixCatalog(item.slot,item.itemLevel).filter(a=>a.side===side))
+    for(const tier of line.tiers)details.append(div('T'+tier.tier+' · '+tier.text,'muted'));
   }
   sheet.append(details);
  }else sheet.append(div('先在背包準備一件裝備。','muted'));
@@ -445,6 +448,18 @@ function renderCraft({message='',focus}={}){
  rail.scrollTop=oldRail;tabs.scrollLeft=oldTabs;
  if(focus)document.getElementById(focus)?.focus({preventScroll:true});
 }
+function renderTalents(){
+ townPage('天賦 · 遊俠起手區');
+ const tree=div('','talent-tree');
+ townDialog.append(tree);
+ const redraw=()=>renderTalentTree(tree,{progression:state.progression,onAllocate:id=>{
+  if(state.practice)return;
+  state.progression=allocateTalent(state.progression,id);
+  updateEquipment();redraw();
+ }});
+ redraw();
+ if(state.practice)townDialog.append(div('技能試射不會保留或使用主線天賦點。','muted'));
+}
 function openService(render){
  if(state.zone!=='town'||state.progression.pendingChoices)return;
  clearInput();render();townDialog.showModal();
@@ -453,10 +468,12 @@ $('#gem-merchant').onclick=()=>openService(renderShop);
 $('#gear-merchant').onclick=()=>openService(renderGambler);
 $('#stash-keeper').onclick=()=>openService(renderStash);
 $('#forge-open').onclick=()=>openService(()=>renderCraft());
-$('#gear-open').onclick=()=>{
- if(guideChoice.open||panel.open||gameMenu.open||state.progression.pendingChoices)return;
- clearInput();acc=0;renderEquipment();townDialog.showModal();
-};
+function openCharacterPanel(draw){
+ if(townDialog.open||guideChoice.open||panel.open||gameMenu.open||state.progression.pendingChoices)return;
+ clearInput();acc=0;draw();townDialog.showModal();
+}
+$('#gear-open').onclick=()=>openCharacterPanel(renderEquipment);
+$('#talent-open').onclick=()=>openCharacterPanel(renderTalents);
 townDialog.addEventListener('close',()=>{townDialog.classList.remove('craft-dialog');clearInput();acc=0;});
 reset();
 const menuStart=$('#menu-start'),restart=$('#restart'),confirmRestart=$('#confirm-restart');
@@ -508,7 +525,8 @@ function simulate(){
     const gem=state.zone==='trial'?selectDroppedGem(ev,catalog,
      [...ownedOrStored(),...state.pendingLoot.gems.map(g=>g.id)],
      {progression:state.progression,campaign:shopCampaign(state)}):null;
-    state.pendingLoot=queueBattleLoot(state.pendingLoot,ev,{hillock:ev.target===hillockId,rollCurrency:state.zone==='trial',gem});
+    if(state.zone==='trial')state=queueTrialLoot(state,ev,{gem});
+    else state.pendingLoot=queueBattleLoot(state.pendingLoot,ev,{hillock:ev.target===hillockId,rollCurrency:false});
    }
    if(ev.target===hillockId&&!state.dead)notify('西拉克已擊敗。往右走到城門，回城會自動收取戰利品。');
   }
@@ -601,11 +619,13 @@ function render(){
   tag.textContent=(key==='life'?'紅水':'藍水')+' '+f.charges+'/'+base.capacity+(f.remaining>0?' · 回復中':'');
  }
  const n=Math.floor(state.time??0);
+ const remaining=talentPoints(state.progression).remaining;
+ $('#talent-open').textContent=remaining?'天賦 '+remaining:'天賦';
  status.textContent=(trial?.stageName??places[state.zone])+' · 等級 '+state.progression.level+' · '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')+' · 擊殺 '+state.kills+(state.dead?' · 已死亡':'');
  $('#gold-hud').textContent='金幣 '+state.gold;
  const pending=state.pendingLoot;
- $('#field-loot').hidden=!pending.gold&&!pending.orbs.length&&!pending.gems.length&&!pending.hillock;
- $('#field-loot').textContent='待回城：'+pending.gold+' 金幣 · '+pending.orbs.length+' 通貨 · '+pending.gems.length+' 寶石'+(pending.hillock?' · 西拉克戰利品':'');
+ $('#field-loot').hidden=!pending.gold&&!pending.orbs.length&&!pending.gems.length&&!pending.gear.length&&!pending.hillock;
+ $('#field-loot').textContent='待回城：'+pending.gold+' 金幣 · '+pending.orbs.length+' 通貨 · '+pending.gems.length+' 寶石'+(pending.gear.length?' · '+pending.gear.length+' 裝備':'')+(pending.hillock?' · 西拉克戰利品':'');
  const manual=inventory.manual,manualGem=inventory.owned.get(manual);
  const wait=state.skillCooldowns?.[manual]??0;
  manualButton.hidden=!manualGem||state.dead||state.zone==='town'||state.encounter?.phase==='cleared';

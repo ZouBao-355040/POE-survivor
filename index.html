@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>流亡倖存者</title><link rel="stylesheet" href="./game.css?v=0.5.5">
+<title>流亡倖存者</title><link rel="stylesheet" href="./game.css?v=0.5.6">
 </head><body>
 <canvas aria-label="流亡倖存者戰場"></canvas>
-<header><div class="brand">流亡倖存者 <small>v0.5.5</small></div><div id="status">載入引擎中…</div><button id="gear-open" aria-haspopup="dialog">裝備</button><button id="gems" aria-haspopup="dialog">寶石</button><button id="menu-open" aria-haspopup="dialog">選單</button></header>
+<header><div class="brand">流亡倖存者 <small>v0.5.6</small></div><div id="status">載入引擎中…</div><button id="gear-open" aria-haspopup="dialog">裝備</button><button id="talent-open" aria-haspopup="dialog">天賦</button><button id="gems" aria-haspopup="dialog">寶石</button><button id="menu-open" aria-haspopup="dialog">選單</button></header>
 <section class="meters" aria-label="角色資源"><div class="meter-side"><label>生命<progress id="life" max="1" value="1"></progress><span id="life-num"></span></label><div id="flask-life" class="flask flask-life" title="小型生命藥劑 · 充能滿時使用">紅水 21/21</div></div><div class="meter-side"><label>魔力<progress id="mana" max="1" value="1"></progress><span id="mana-num"></span></label><div id="flask-mana" class="flask flask-mana" title="小型魔力藥劑 · 充能滿時使用">藍水 24/24</div></div></section>
 <div id="gold-hud" aria-label="持有金幣">金幣 0</div>
 <div id="field-loot" hidden></div>
@@ -38,5 +38,5 @@
 </dialog>
 <dialog id="gem-panel" aria-labelledby="gem-title"></dialog>
 <noscript>請開啟 JavaScript 才能玩。</noscript>
-<script type="module" src="./play.mjs?v=0.5.5"></script>
+<script type="module" src="./play.mjs?v=0.5.6"></script>
 </body></html>

@@ -17,43 +17,71 @@ export function newTownServices({starter=false}={}){
 export const equippedSocketLayout=town=>Object.fromEntries(Object.entries(bowLayout)
  .filter(([slot])=>town.gear.some(g=>g.id===town.equipped[slot]&&g.slot===slot)));
 function sample(random){const n=random();if(!(n>=0&&n<1))throw new RangeError('無效擲骰');return n;}
-function makeGear(town,slot,random,minRank=0){
- const rank=minRank+Math.floor(sample(random)*(3-minRank));
+function gearBlueprint(slot,random,rank,itemLevel=3){
  const rarity=['普通','魔法','稀有'][rank];
  const name=gearNames[slot][Math.floor(sample(random)*3)];
  const value=slot==='weapon'?8+rank*5+Math.floor(sample(random)*4):slot==='body'?8+rank*5+Math.floor(sample(random)*5):5+rank*4+Math.floor(sample(random)*3);
- const item=rollGearAffixes({id:'gear-'+town.nextItem,slot,name,rarity,value},random);
+ return rollGearAffixes({slot,name,rarity,value,itemLevel},random);
+}
+function addGear(town,blueprint){
+ const item={...blueprint,id:'gear-'+town.nextItem};
  return {item,town:{...town,nextItem:town.nextItem+1,gear:[...town.gear,item]}};
 }
-export function rollGear(town,gold,slot,random=Math.random){
+function makeGear(town,slot,random,minRank=0,itemLevel=3){
+ const rank=minRank+Math.floor(sample(random)*(3-minRank));
+ return addGear(town,gearBlueprint(slot,random,rank,itemLevel));
+}
+export const regularGearDropChance=.02;
+export function trialGearDrop(kill,encounter,bossAlreadyRewarded=false,random=Math.random){
+ if(bossAlreadyRewarded&&kill.boss)return null;
+ if(!kill.boss&&sample(random)>=regularGearDropChance)return null;
+ const draw=sample(random),mapRank=encounter.rank??0;
+ const rarity=kill.boss?(encounter.stageId==='coast'?0:draw<.30?0:draw<.85?1:2):
+  draw<.74?0:mapRank>=5&&draw>=.97?2:1;
+ const slots=Object.keys(gearSlots),slot=slots[Math.floor(sample(random)*slots.length)];
+ return {...gearBlueprint(slot,random,rarity,3+mapRank+Number(!!kill.boss)),dropArea:encounter.stageName,
+  dropSource:kill.boss?(encounter.boss?.name??'區域頭目'):'普通怪'};
+}
+export function rollGear(town,gold,slot,random=Math.random,itemLevel=3){
  if(!Object.hasOwn(gearSlots,slot))throw new Error('未知部位');
  if(!Number.isSafeInteger(gold)||gold<wagerPrice)throw new Error('金幣不足');
  if(town.gear.length>=satchelLimit)throw new Error('裝備背包已滿');
- return {gold:gold-wagerPrice,...makeGear(town,slot,random)};
+ return {gold:gold-wagerPrice,...makeGear(town,slot,random,0,itemLevel)};
 }
 export function hillockLoot(town,random=Math.random){
  if(sample(random)<.25)return {gold:2+Math.floor(sample(random)*2),item:null,orb:null,town};
  const gold=6+Math.floor(sample(random)*4);
  const slot=['weapon','body','boots'][Math.floor(sample(random)*3)];
- const gear=makeGear(town,slot,random,1);
+ const gear=makeGear(town,slot,random,1,2);
  const orb=randomCurrency(()=>sample(random));
  return {gold,item:gear.item,orb,town:{...gear.town,storedOrbs:creditCurrency(gear.town.storedOrbs,[orb])}};
 }
-export const emptyBattleLoot=()=>({gold:0,orbs:[],gems:[],hillock:false});
+export const emptyBattleLoot=()=>({gold:0,orbs:[],gems:[],gear:[],hillock:false});
 
-export function queueBattleLoot(loot,kill,{hillock=false,rollCurrency=true,gem=null,random=Math.random}={}){
+export function queueBattleLoot(loot,kill,{hillock=false,rollCurrency=true,gem=null,gear=null,random=Math.random}={}){
  const orb=!hillock&&rollCurrency?currencyDrop(kill,random):null;
- return {gold:loot.gold+kill.gold,orbs:orb?[...loot.orbs,orb]:loot.orbs,gems:gem&&!loot.gems.some(g=>g.id===gem.id)?[...loot.gems,gem]:loot.gems,hillock:loot.hillock||hillock};
+ return {gold:loot.gold+kill.gold,orbs:orb?[...loot.orbs,orb]:loot.orbs,gems:gem&&!loot.gems.some(g=>g.id===gem.id)?[...loot.gems,gem]:loot.gems,gear:gear?[...(loot.gear??[]),gear]:(loot.gear??[]),hillock:loot.hillock||hillock};
+}
+
+export function queueTrialLoot(state,kill,{gem=null,random=Math.random}={}){
+ const bossGearRewards=state.bossGearRewards??{};
+ const stage=state.encounter;
+ const gear=trialGearDrop(kill,stage,Object.hasOwn(bossGearRewards,stage.stageId),random);
+ return {...state,pendingLoot:queueBattleLoot(state.pendingLoot,kill,{gem,gear,random}),
+  bossGearRewards:kill.boss&&gear?{...bossGearRewards,[stage.stageId]:true}:bossGearRewards};
 }
 
 export function claimBattleLoot(town,gold,loot,random=Math.random){
  const hillock=loot.hillock?hillockLoot(town,random):null;
- const base=hillock?.town??town;
+ let base=hillock?.town??town;
+ let claimedGear=Number(!!hillock?.item);
+ // Battlefield items are never lost to a full bag; purchases and manual withdrawals still respect the soft limit.
+ for(const blueprint of loot.gear??[]){base=addGear(base,blueprint).town;claimedGear++;}
  const storedGems=new Map(base.storedGems);
  let claimedGems=0;
  for(const gem of loot.gems)if(!storedGems.has(gem.id)){storedGems.set(gem.id,createGemInstance(gem));claimedGems++;}
  return {town:{...base,storedGems,storedOrbs:creditCurrency(base.storedOrbs,loot.orbs)},gold:gold+loot.gold+(hillock?.gold??0),
-  claimedGold:loot.gold+(hillock?.gold??0),claimedOrbs:loot.orbs.length+Number(!!hillock?.orb),claimedGems,hillock,pending:emptyBattleLoot()};
+  claimedGold:loot.gold+(hillock?.gold??0),claimedOrbs:loot.orbs.length+Number(!!hillock?.orb),claimedGems,claimedGear,hillock,pending:emptyBattleLoot()};
 }
 
 export function equipGear(town,id){

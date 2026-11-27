@@ -26,7 +26,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.5/);
+ assert.match(await text('.brand'),/v0\.5\.6/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -92,6 +92,18 @@ async function verify(viewport,mobile){
  assert.equal(await reward.isVisible(),false);
  const inTown=await snapshot();await page.clock.runFor(1800);assert.deepEqual(await snapshot(),inTown);
  const services=page.locator('#town-dialog');
+ await btn(/^天賦( \d+)?$/).click();
+ await services.locator('[data-talent-route="survival"]').click();
+ const talent=services.locator('[data-talent-id="39821"]');
+ assert.match(await talent.innerText(),/最大生命 \+14/);
+ assert.equal(await talent.getAttribute('data-talent-state'),'available');
+ await talent.click();
+ await page.clock.runFor(50);
+ assert.equal(await talent.getAttribute('data-talent-state'),'allocated');
+ assert.match(await text('#life-num'),/84\/84/);
+ assert.match(await services.locator('.talent-points').innerText(),/剩餘 0 點/);
+ assert.equal(await services.locator('[data-talent-id="2094"]').getAttribute('data-talent-state'),'locked');
+ await btn('關閉',services).click();
  await btn('裝備').click();
  assert.equal(await services.locator('.equipment-grid .gear-icon').count(),2);
  const bow=services.locator('.equipment-grid .gear-icon use').first();
@@ -195,7 +207,10 @@ async function verify(viewport,mobile){
   for(let turn=0;turn<300;turn++){
    if(await btn('前往炙熱鹽沼').isVisible())break;
    if((await text('#status')).includes('已死亡'))throw new Error('Browser walkthrough died at '+await text('#status'));
-   if(await reward.isVisible())await reward.getByRole('button').first().click();
+   if(await reward.isVisible()){
+    const orb=btn('點金石 ×1',reward);
+    if(process.env.VERIFY_LOOT_RETURN==='1'&&await orb.isVisible())await orb.click();else await reward.getByRole('button').first().click();
+   }
    if(await page.locator('#boss-hud').isVisible()){
     assert.match(await text('#boss-label'),/怒炎之使/);
     assert.match(await text('#boss-hp'),/700$/);
@@ -207,9 +222,30 @@ async function verify(viewport,mobile){
   assert.ok(sawBoss,'portrait HUD must render during the real boss fight');
   while(await reward.isVisible())await reward.getByRole('button').first().click();
   const walletBefore=await text('#gold-hud');
+  assert.match(await text('#field-loot'),/[1-9]\d* 裝備/);
+  if(process.env.VERIFY_LOOT_RETURN==='1'){
+   await btn('返回獅眼守望').click();
+   await page.clock.runFor(160);
+   assert.match(await text('#town-loot'),/[1-9]\d* 件裝備/);
+   assert.ok(Number((await text('#gold-hud')).split(' ')[1])>Number(walletBefore.split(' ')[1]));
+   assert.equal(await page.locator('#field-loot').isVisible(),false);
+   await btn('裝備').click();
+   assert.match(await services.innerText(),/掉落：暮光海灘 · 怒炎之使/);
+   await btn('關閉',services).click();
+   await btn(/^裝備打造/).click();
+   await services.getByRole('combobox',{name:'選擇裝備'}).selectOption('gear-3');
+   assert.match(await services.locator('.craft-item').innerText(),/普通.*物品等級 4/s);
+   await btn(/^點金石.*倉庫/s,services).click();
+   await btn('打造 · 點金石 ×1',services).click();
+   assert.match(await services.locator('.craft-item').innerText(),/稀有/);
+   await btn('關閉',services).click();
+   console.log('暮光海灘實戰掉裝：只在回城後入包，且可使用升級拿到的點金石加工。');
+  }
   await btn('前往炙熱鹽沼').click();
-  assert.equal(await text('#gold-hud'),walletBefore);
-  assert.match(await text('#field-loot'),/[1-9]\d* 金幣/);
+  if(process.env.VERIFY_LOOT_RETURN!=='1'){
+   assert.equal(await text('#gold-hud'),walletBefore);
+   assert.match(await text('#field-loot'),/[1-9]\d* 金幣/);
+  }
   await page.clock.runFor(200);
   assert.match(await text('#status'),/^炙熱鹽沼/);
   assert.match(await text('#zone-objective'),/雕紋 0\/3/);
@@ -272,14 +308,14 @@ async function verify(viewport,mobile){
   assert.equal(draw.landingMarkers>0,payload,'only Cloudburst marks an airborne landing');
  }
  assert.deepEqual(failures,[]);
- console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、固定通貨倉與打造、穿戴插槽、手動施放與兩種龍捲射擊通過。');
+ console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、固定通貨倉與打造、有效天賦、穿戴插槽、手動施放與兩種龍捲射擊通過。');
  await page.close();
 }
 async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.5',async route=>{
+ await page.route('**/play.mjs?v=0.5.6',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));

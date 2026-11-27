@@ -15,12 +15,16 @@ const spec=Object.freeze({
  fire:[5,10,'火焰抗性 +','%'],cold:[5,10,'冰冷抗性 +','%'],lightning:[5,10,'閃電抗性 +','%']
 });
 export const affixText=affix=>{const [,,before,after]=spec[affix.key];return before+affix.value+after;};
+const tierRange=(key,tier)=>tier===2?[Math.ceil(spec[key][0]*1.55),Math.ceil(spec[key][1]*1.55)]:spec[key].slice(0,2);
+export const affixTierLevel=8;
 
-export function affixCatalog(slot){
+export function affixCatalog(slot,itemLevel=1){
  const pool=pools[slot];
  if(!pool)return [];
  return ['prefix','suffix'].flatMap(side=>pool[side].map(key=>({
-  side,key,text:affixText({key,value:spec[key][0]+'～'+spec[key][1]})})));
+  side,key,text:affixText({key,value:spec[key][0]+'～'+spec[key][1]}),
+  tiers:(itemLevel>=affixTierLevel?[2,3]:[3]).map(tier=>({tier,text:affixText({key,value:tierRange(key,tier).join('～')})}))
+ })));
 }
 function sample(random){
  const value=random();
@@ -36,8 +40,9 @@ function candidates(item,rarity){
 function addAffix(item,random){
  const entries=candidates(item,item.rarity);
  if(!entries.length)throw new Error('沒有可新增的詞綴');
- const {side,key}=entries[Math.floor(sample(random)*entries.length)], [min,max]=spec[key];
- return {...item,affixes:[...(item.affixes??[]),{side,key,value:min+Math.floor(sample(random)*(max-min+1))}]};
+ const {side,key}=entries[Math.floor(sample(random)*entries.length)];
+ const tier=(item.itemLevel??1)>=affixTierLevel&&sample(random)<.3?2:3,[min,max]=tierRange(key,tier);
+ return {...item,affixes:[...(item.affixes??[]),{side,key,tier,value:min+Math.floor(sample(random)*(max-min+1))}]};
 }
 export function rollGearAffixes(item,random=Math.random){
  let next={...item,affixes:[]};
