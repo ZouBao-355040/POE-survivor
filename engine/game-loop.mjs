@@ -4,8 +4,10 @@ import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot} from './dot.mjs';
 import {applyDamage} from './resources.mjs';
 import {resolveAttackImpact} from './combat.mjs';
-export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,momentum,manaRegen=0,enemyModifiers}={}){
+import {grantExperience} from './progression.mjs';
+export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,momentum,manaRegen=0,enemyModifiers,experienceRequired}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
+ if(state.dead||state.progression?.pendingChoices>0)return {...state,events:[]};
  let player={...state.player},enemies=state.enemies.map(e=>({...e})),projectiles=[],events=[];
  let time=state.time??0,nextSpawn=state.nextSpawn??0,nextId=state.nextId??0;
  const length=Math.hypot(direction.x,direction.y);
@@ -19,5 +21,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
  const target=nearestEnemy(player,enemies,player.attackRange??10);
  if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time);if(shot){player=shot.player??player;projectiles.push(shot.projectile);cooldown=shot.cooldown;events.push({type:'fire',target:target.id});}}
- return {...state,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,time:time+dt,nextSpawn,nextId,cooldown,events};
+ let progression=state.progression;
+ for(const e of enemies.filter(e=>e.life<=0)){events.push({type:'kill',target:e.id});if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
+ return {...state,progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,time:time+dt,nextSpawn,nextId,cooldown,events};
 }
