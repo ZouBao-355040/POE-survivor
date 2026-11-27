@@ -7,9 +7,13 @@ export function attack({attacker,target,skill,modifiers,rolls,context={}}){
  context={...context,...(skill.context??{})};
  const payment=payManaCost(attacker,skill.cost??0,{eldritchBattery:!!attacker.rules?.eldritchBattery});
  if(!payment.paid)return {performed:false,attacker,target};
+ return resolveAttackImpact({attacker:payment.state,target,skill,modifiers,rolls,context});
+}
+export function resolveAttackImpact({attacker,target,skill,modifiers,rolls,context={}}){
+ context={...context,...(skill.context??{})};
  const hit=resolveHit({source:'attack',accuracy:attacker.accuracy,evasion:target.evasion,entropy:target.entropy??0,criticalChance:skill.criticalChance??0,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
  const nextTarget={...target,entropy:hit.entropy};
- if(!hit.hit)return {performed:true,hit,attacker:payment.state,target:nextTarget};
+ if(!hit.hit)return {performed:true,hit,attacker:attacker,target:nextTarget};
  const base=prepareBaseDamage(skill.baseDamage,modifiers,context,skill.effectiveness??1);
  const packets=convertDamage(base,skill.conversion??[]);
  const damage=aggregateDamage(scalePackets(packets,modifiers,context));
@@ -18,5 +22,5 @@ export function attack({attacker,target,skill,modifiers,rolls,context={}}){
  const mitigation=mitigateHit({damage,source:'attack',defender:target.defence,penetration:skill.penetration,blockRoll:rolls.block});
  const settlement=applyDamage(nextTarget,mitigation.damage,target.rules);
  const ignite=!mitigation.blocked&&(hit.critical||rolls.ignite<(skill.igniteChance??0))?igniteFromPackets(packets,modifiers,context,hit.critical):null;
- return {ignite:ignite?.rate>0?ignite:null,performed:true,hit,mitigation,attacker:payment.state,target:settlement.state,dead:settlement.dead};
+ return {ignite:ignite?.rate>0?ignite:null,performed:true,hit,mitigation,attacker:attacker,target:settlement.state,dead:settlement.dead};
 }
