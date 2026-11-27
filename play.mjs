@@ -32,7 +32,7 @@ let available=0;for(const kind of ['active','support']){const config={catalog,bo
 if(!available){const msg=document.createElement('p');msg.textContent='目前測試寶石池已全部取得。';reward.append(msg);button('繼續戰鬥',()=>{state.progression={...p,pendingChoices:p.pendingChoices-1};renderReward();});}}
 
 function frame(now){try{
-acc+=Math.min(.1,(now-last)/1000);last=now;
+if(panel.hidden){acc+=Math.min(.1,(now-last)/1000);}else{acc=0;origin=null;dir={x:0,y:0};}last=now;
 while(acc>=.02){const direction=origin?dir:{x:Number(keys.has('ArrowRight')||keys.has('d'))-Number(keys.has('ArrowLeft')||keys.has('a')),y:Number(keys.has('ArrowDown')||keys.has('s'))-Number(keys.has('ArrowUp')||keys.has('w'))};state=stepWorld(state,.02,{...hooks,direction,manaRegen:.846,enemyModifiers,spawnInterval:1.5,spawnRadius:12,experienceRequired:l=>l*30,enemyStats:{life:35,maximumLife:35,mana:0,energyShield:0,evasion:10,accuracy:50,defence:{},speed:2,attackRange:.7,experienceReward:10,attack:{baseDamage:{physical:5},attacksPerSecond:1,criticalChance:0}}});acc-=.02;}
 const w=canvas.clientWidth,h=canvas.clientHeight;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
 const p=state.player,scale=Math.min(w,h)/23;
