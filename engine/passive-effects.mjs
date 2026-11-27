@@ -67,7 +67,7 @@ export function parsePassiveLine(line){
   const keys=m[2]==='all Elemental'?['fire','cold','lightning']:[types[m[2]]];
   return [keys.map(key=>numeric('maxres:'+key,+m[1]/100)),(translate[m[2]]??'全部元素')+'最大抗性 +'+m[1]+'%'];
  }
- if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)(%)? Life per second$/)))
+ if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)(?:(%)(?: of)?)? Life per second$/)))
   return [[numeric(m[2]?'lifeRegenPct':'lifeRegen',+m[1]/(m[2]?100:1))],'每秒回復 '+m[1]+(m[2]??'')+' 生命'];
  if((m=line.match(/^\+(\d+)% to (Global )?Critical Strike Multiplier$/)))
   return [[numeric('criticalMultiplier',+m[1]/100)],'暴擊加成 +'+m[1]+'%'];
@@ -81,6 +81,8 @@ export function parsePassiveLine(line){
   return [[numeric('projectileCount',+m[1],'flat')],'技能發射 '+m[1]+' 個額外投射物'];
  if((m=line.match(/^(Attack )?Projectiles Return to you$/i)))
   return [[numeric(m[1]?'return:attack':'return',1)],m[1]?'攻擊投射物返回':'投射物返回'];
+ if((m=line.match(/^(\d+)% increased Attack Speed when on Full Life$/)))
+  return [[{...numeric('attackSpeed',+m[1]/100,'increased'),conditions:{fullLife:true}}],'滿血時攻擊速度提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased (Spell|Melee) Critical Strike Chance$/)))
   return [[numeric('criticalChance:'+m[2].toLowerCase(),+m[1]/100,'increased')],m[2]==='Spell'?'法術暴擊率提高 '+m[1]+'%':'近戰暴擊率提高 '+m[1]+'%'];
  if((m=line.match(/^\+(\d+)% to (Melee Critical Strike Multiplier|Critical Strike Multiplier for Spell Damage)$/)))

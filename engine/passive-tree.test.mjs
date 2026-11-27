@@ -1,3 +1,5 @@
+import {gemById} from './projectile-catalog.mjs';
+import {parsePassiveLine} from './passive-effects.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {allocate,nodes,points,starts,tracePath,treeStatus} from './passive-tree.mjs';
@@ -146,4 +148,52 @@ test('Elemental Equilibrium rewards alternating elements instead of applying exp
  const alternate=hooks.onImpact(first,make('cold'),2,player);
  assert.equal(alternate.life,first.life-10);
  assert.deepEqual(alternate.exposed,['fire','lightning']);
+});
+
+test('canonical percent life regeneration opens six Life Mastery clusters and raises actual maximum life only at six',()=>{
+ const clusters=[4139,12125,12382,32241,43818,62588];
+ for(const passiveClass of Object.keys(starts)){
+  const state={...initial,passiveClass};
+  for(const id of clusters)assert.ok(tracePath(state,id).length,passiveClass+' cannot reach '+id);
+ }
+ const effects=[64381,34242,47642,31822,38454,21468];
+ const route=clusters.reduce((state,id)=>walk(state,id),initial);
+ const five=clusters.slice(0,5).reduce((state,id,i)=>allocate(state,id,effects[i]),route);
+ const six=allocate(five,clusters[5],effects[5]);
+ // Rebuild the same route without the conditional mastery; all other life modifiers match.
+ const control=clusters.slice(1,5).reduce((state,id,i)=>allocate(state,id,effects[i+1]),route);
+ const expected=load(control).player.maximumLife;
+ assert.equal(load(five).player.maximumLife,expected);
+ assert.equal(load(six).player.maximumLife,Math.round(expected*1.1));
+});
+
+test('canonical percentage life regeneration restores health on a live world tick',()=>{
+ const n=all.find(n=>n.implemented&&n.effects.some(e=>e==='每秒回復 0.6% 生命')&&tracePath(initial,n.id).length);
+ assert.ok(n);
+ const before=walk(initial,n.id),after=allocate(before,n.id);
+ const wounded=state=>{const {player}=load(state);return {...player,life:20};};
+ const base=wounded(before),regen=wounded(after);
+ assert.ok(regen.lifeRegen>base.lifeRegen);
+ const tick=player=>stepWorld({player,enemies:[],projectiles:[],time:0},.05).player.life;
+ assert.ok(tick(regen)>tick(base));
+ assert.ok(Math.abs(tick(regen)-(20+.05*regen.lifeRegen))<1e-10);
+});
+
+test('live attack cadence uses real weapon type and the Life Mastery full-life threshold',()=>{
+ const inventory=new GemInventory();
+ const {player,mods}=load();
+ const cast=(id,life=player.life,fullLifeThreshold=1)=>{
+  const active=gemById.get(id);
+  return rangerHooks({modifiers:mods,inventory,random:()=>.4}).onFire({...player,life,rules:{...player.rules,fullLifeThreshold}},{x:4,y:0},0,[],undefined,{linked:{active,supports:[]}});
+ };
+ const wand=cast('kinetic-bolt').cooldown,bow=cast('burning-arrow').cooldown,spell=cast('fireball').cooldown;
+ mods.replace('weapon',[{stat:'attackSpeed',kind:'increased',value:.2,tags:['wand']}]);
+ assert.ok(cast('kinetic-bolt').cooldown<wand);
+ assert.equal(cast('burning-arrow').cooldown,bow);
+ assert.equal(cast('fireball').cooldown,spell);
+ const [fullMods]=parsePassiveLine('10% increased Attack Speed when on Full Life');
+ mods.replace('full-life',fullMods);
+ assert.equal(cast('burning-arrow',player.maximumLife*.92).cooldown,bow);
+ assert.ok(cast('burning-arrow',player.maximumLife*.92,.9).cooldown<bow);
+ assert.equal(cast('burning-arrow',player.maximumLife*.89,.9).cooldown,bow);
 });

@@ -79,7 +79,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
  return {momentum,charges,addSouls,onMove:resetIntensity,onFire(player,target,time,enemies=[target],env,cast){
   const linked=cast?cast.linked:inventory?.current();
   let chosen=inventory?(linked?.active??basicBowAttack):active;
-  const ctx={maximumLife:player.maximumLife,maximumMana:player.maximumMana,maximumEnergyShield:player.maximumEnergyShield};
+  const ctx={conditions:{fullLife:player.life>=player.maximumLife*(player.rules?.fullLifeThreshold??1)},maximumLife:player.maximumLife,maximumMana:player.maximumMana,maximumEnergyShield:player.maximumEnergyShield};
   let skillSupports=inventory?(linked?.supports??[]):supports;
   if(chosen.pactActive){
    const base=chosen.pactActive,boost=chosen.pact==='beidat',n=(chosen.level??1)-1;
@@ -92,8 +92,10 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    if(cast?.manual)return null;
    chosen=chosen.fallbackActive??basicBowAttack;
   }
-  const equipped=inventory?weaponStats(trainingWeapons[trainingWeaponFor(chosen)]):weapon;
-  let skill=compileAttack(chosen,equipped,skillSupports,modifiers,random,ctx);
+  const weaponType=inventory?trainingWeaponFor(chosen):'Bow';
+  const equipped=inventory?weaponStats(trainingWeapons[weaponType]):weapon;
+  const attackContext=chosen.tags.includes('attack')?{...ctx,tags:[weaponType.toLowerCase().replaceAll(' ','-')]}:ctx;
+  let skill=compileAttack(chosen,equipped,skillSupports,modifiers,random,attackContext);
   const ballista=cast&&skill.deploy==='totem'&&chosen.tags.includes('bow');
   const group=ballista?'ballista':cast&&skill.deploy==='totem'?'totem':null;
   const deployed=group?env?.activeFields?.(f=>f.totemGroup===group)??[]:[];
@@ -101,7 +103,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(full&&!cast?.manual)return {player,cooldown:.15,projectiles:[],skill:chosen.id,deferred:true};
   let payment=paySkillCost(player,skill.cost,skill.lifeCostRatio);
   if(!payment.paid&&cast)return null;
-  if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(chosen,weapon,[],modifiers,random,ctx);payment=paySkillCost(player,0);}
+  if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(chosen,weapon,[],modifiers,random,{...ctx,tags:['bow']});payment=paySkillCost(player,0);}
   if(!payment.paid||distance(player,target)<1e-9)return null;
   if(chosen!==basicBowAttack&&player.rules?.skillManaRecover&&random()<.1)payment.state.mana=Math.min(player.maximumMana,payment.state.mana+player.maximumMana*.1);
   if(chosen.vaalSouls){souls-=chosen.vaalSouls;soulBlockedUntil=time+3;}

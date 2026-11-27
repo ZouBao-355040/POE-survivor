@@ -1,5 +1,5 @@
 import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.7';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.8';
 import {classAttributes} from './character.mjs';
 import {resourceKeystones} from './keystones.mjs';
 

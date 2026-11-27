@@ -26,7 +26,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.7/);
+ assert.match(await text('.brand'),/v0\.5\.8/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -324,7 +324,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.7',async route=>{
+ await page.route('**/play.mjs?v=0.5.8',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
