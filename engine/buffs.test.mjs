@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {BuffPool} from './buffs.mjs';
+test('stronger buff expires without deleting weaker buff',()=>{const b=new BuffPool();b.apply({id:'a',source:'x',strength:1,duration:10},0);b.apply({id:'a',source:'y',strength:2,duration:2},0);assert.equal(b.active(1)[0].strength,2);assert.equal(b.active(3)[0].strength,1);assert.equal(b.active(10).length,0);});
+test('same source refreshes expiry',()=>{const b=new BuffPool();b.apply({id:'a',source:'x',duration:5},0);b.apply({id:'a',source:'x',duration:5},4);assert.equal(b.active(6).length,1);assert.equal(b.active(9).length,0);});
+test('explicit stacking preserves distinct sources',()=>{const b=new BuffPool();for(const source of ['x','y'])b.apply({id:'a',source,policy:'stack'},0);assert.equal(b.active(1).length,2);});
