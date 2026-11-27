@@ -11,6 +11,7 @@ export function compileAttack(active,weapon,supports,modifiers,random,context={}
  const effectiveness=active.effectiveness??1;
  const baseDamage=rollWeaponDamage(weapon,random);
  for(const t of Object.keys(baseDamage))baseDamage[t]*=active.weaponDamageMultiplier??effectiveness;
+ for(const support of linked)for(const [type,range] of Object.entries(support.addedDamage??{})){const [min,max]=range;baseDamage[type]=(baseDamage[type]??0)+(min+(max-min)*random())*effectiveness;}
  const speedBase=weapon.attacksPerSecond*(active.attackSpeedMultiplier??1)*product('attackSpeedMultiplier');
  const speed=modifiers.breakdown('attackSpeed',ctx);
  const supportIncrease=linked.reduce((n,s)=>n+(s.increasedAttackSpeed??0),0);
