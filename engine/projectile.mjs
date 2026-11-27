@@ -40,7 +40,7 @@ export function redirectProjectile(p,enemies,player,{hitId=null}={}){
  candidates.sort((a,b)=>distance(p,a)-distance(p,b));
  if(hitId!==null&&!p.returning&&p.remainingRange>EPS){
   if(p.split>0&&candidates.length)return candidates.slice(0,p.split).map(e=>aim(p,e,{split:0})).filter(Boolean);
-  if(p.fork>0)return [-.52,.52].map(a=>turn(p,a,{fork:p.fork-1}));
+  if(p.fork>0)return ((p.forkRoll??1)<(p.extraForkChance??0)?[-.52,0,.52]:[-.52,.52]).map(a=>turn(p,a,{fork:p.fork-1}));
   if(p.chain>0){const next=candidates.map(e=>aim(p,e,{chain:p.chain-1})).find(Boolean);if(next)return [next];}
  }
  if(p.canReturn&&!p.returning){

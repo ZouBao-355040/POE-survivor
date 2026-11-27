@@ -1,5 +1,7 @@
 name: Engine tests
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -9,3 +11,18 @@ jobs:
         with:
           node-version: '22'
       - run: node --test engine/*.test.mjs
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false playwright@1.57.0
+      - run: npx playwright install --with-deps chromium --only-shell
+      - name: Verify mobile and desktop game entry point
+        run: |
+          python3 -m http.server 8123 --bind 127.0.0.1 >/tmp/game-http.log 2>&1 &
+          trap 'kill $!' EXIT
+          curl --retry 8 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:8123/ >/dev/null
+          node scripts/browser-smoke.mjs

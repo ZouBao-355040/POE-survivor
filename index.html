@@ -1,1 +1,15 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>流亡倖存者</title><style>*{box-sizing:border-box}body{margin:0;background:#101417;color:#ddd;font:14px system-ui}canvas{width:100%;height:100dvh;display:block;touch-action:none}header{position:fixed;top:8px;left:12px;right:12px;display:flex;gap:8px;align-items:center;pointer-events:none}button{pointer-events:auto;background:#303a40;color:#eee;border:1px solid #667;padding:8px;border-radius:6px}#status{flex:1}progress{position:fixed;width:calc(100% - 24px);height:12px;left:12px;accent-color:#a33}#life{top:48px}#mana{bottom:12px;accent-color:#467bbd}#reward{position:fixed;inset:30% 10%;background:#20272d;border:1px solid #9d885f;text-align:center;padding:20px}#hint{position:fixed;bottom:30px;left:12px;color:#aaa;pointer-events:none}@media(orientation:landscape){progress{width:80px;height:25px}#life{top:auto;bottom:12px}#mana{left:auto;right:12px}#hint{left:110px}}</style></head><body><canvas></canvas><header><span style="color:#c8a45e;font-size:12px;white-space:nowrap">v0.2.7</span><span id="status">載入引擎中…</span><button id="restart">重開</button></header><progress id="life" max="1" value="1"></progress><progress id="mana" max="1" value="1"></progress><div id="hint">拖曳畫面移動 · 自動射擊</div><section id="reward" hidden><h2>升級</h2><p>已取得天賦點。寶石介面尚未接入。</p><button id="resume">繼續測試</button></section><script type="module" src="./play.mjs?v=0.2.7"></script></body></html>
+<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>流亡倖存者</title><link rel="stylesheet" href="./game.css?v=0.3.0">
+</head><body>
+<canvas aria-label="流亡倖存者戰場"></canvas>
+<header><div class="brand">流亡倖存者 <small>v0.3.0</small></div><div id="status">載入引擎中…</div><button id="gems" aria-haspopup="dialog">寶石</button><button id="restart">重開</button></header>
+<section class="meters" aria-label="角色資源"><label>生命<progress id="life" max="1" value="1"></progress><span id="life-num"></span></label><label>魔力<progress id="mana" max="1" value="1"></progress><span id="mana-num"></span></label></section>
+<div id="hint">拖曳或 WASD 移動 · 自動攻擊</div>
+<div id="toast" role="status"></div>
+<section id="reward" class="modal" aria-label="升級寶石獎勵" hidden></section>
+<dialog id="gem-panel" aria-labelledby="gem-title"></dialog>
+<noscript>請開啟 JavaScript 才能玩。</noscript>
+<script type="module" src="./play.mjs?v=0.3.0"></script>
+</body></html>

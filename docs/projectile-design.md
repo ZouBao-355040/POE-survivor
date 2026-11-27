@@ -1,9 +1,26 @@
-# Projectile family design
+# PoE 1 投射物研究範圍及重製方式
 
-Sources: https://www.poewiki.net/wiki/Projectile ; https://www.poewiki.net/wiki/Pierce ; https://www.poewiki.net/wiki/Return ; https://www.poewiki.net/wiki/Barrage ; https://www.poewiki.net/wiki/Split_Arrow ; https://www.poewiki.net/wiki/Freezing_Pulse ; https://www.poewiki.net/wiki/Frostbolt ; https://www.poewiki.net/wiki/Power_Siphon
+## 定版及來源
 
-Verified shared behavior priority: split, pierce, fork, chain, return. One behavior per collision. Range is bounded by lifetime times speed and a maximum distance (15 metres in PoE); game world unit conversion remains to be defined. Track age and accumulated distance separately. Returning projectiles need separate hit history. Simultaneous volleys and sequential shots require different hit policies.
+- [GGG 3.30.0 版本公告](https://www.pathofexile.com/forum/view-thread/4013680/page/1) 用於確認當版技能與變體（例如輻射火球與凜冬之球投射物變更）。
+- [RePoE 資料輸出](https://repoe-fork.github.io/) 的 PoE 1 `gems.json`：寶石及賦予效果、標籤、技能類型、支援限制、武器限制、等級 1 的魔力與基礎屬性。快照 SHA-256 放在 `engine/projectile-index.mjs`。
+- [Path of Building 2.68.0 寶石資料](https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/v2.68.0/src/Data/Gems.lua) 為識別碼及變體的交叉對照；其 [CalcTools](https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/v2.68.0/src/Modules/CalcTools.lua) 為類型相容限制的參考。
+- [流亡編年史繁中投射物頁](https://poedb.tw/tw/Projectile) 用於繁中名稱；圖鑑逐項保留來源網址。原作寶石資料與名稱歸 Grinding Gear Games 所有。
 
-Verified Split Arrow level 1: 5 mana, 120% damage/effectiveness, 110% attack speed, 5 arrows. Barrage: sequential shots with 40% windup and 60% allocated to firing. Freezing Pulse: inherent pierce and lifetime-dependent damage/freeze decay. Frostbolt: inherent pierce. Power Siphon: target-specific radial targeting, culling and power charge mechanics.
+範圍包含快照中已發布、具投射物標籤的主動寶石及其單獨效果（含瓦爾、變異）、投射物輔助與直接影響生成、重複、發射媒介或命中的相關輔助。排除大逃殺、無情模式的重複品、未發行資料、怪物技能、裝備授予而無寶石版本的技能，以及單純泛用的傷害／防禦輔助。收錄 **145 主動／46 輔助**。索引生成方式見 `scripts/build-projectile-index.py`；此資料已隨遊戲打包，執行時不用連到第三方。
 
-Implementation backlog (not verified exhaustive): bow/wand straight shots, sequential attacks, secondary hits and explosions, ground trails, persistent projectiles, phase transitions, returning trajectories, spell casting and independent base damage, weapon restrictions, ailment handling, support-specific hit/ailment modifiers. Verify each skill and variant before enabling it. Exclude lobbed, random and orbiting trajectories from the initial straight-shot family unless their primary segment qualifies.
+## 架構
+
+- `projectile-index.mjs`：穩定資料與參考來源，不執行戰鬥。
+- `projectile-catalog.mjs` 與 `projectile-families.mjs`：每顆寶石對應的射擊模式、射出者、傷害欄位及技能效果。
+- `skill.mjs`：在編譯時依標籤、攻擊種類、武器與相容限制加上輔助。一般、覺醒及高階同族輔助不重複疊加。
+- `projectile-pattern.mjs`：同起點扇形、雙側平行、逐發與個別目標的出射圖形。裂化箭矢的寬扇形不同於一般多重投射；齊射輔助從平行偏移的車道發射。彈幕的延遲在戰場時間內計算；等待中的箭不顯示。
+- `projectile.mjs`：掃掠碰撞、時間及飛行距離、每輪命中集合，優先順序為裂化、穿透、分裂、連鎖、返回。返回跟隨目前位置、使用獨立命中紀錄，支持回程傷害修正。飛行速度、飛行時間與技能的固定落點共同決定射程。
+- `game-loop.mjs` 與 `ranger.mjs`：固定 20ms 步進、自動攻擊、地面區域與擁有獨立時序的發射者；背包或升級時不推進戰鬥。凜冬之眼、毒雨、爆炸箭矢、瓦爾等使用專門的譜系參數及觸發效果。
+- `gem-growth.mjs`：同組相容且生效的寶石共享本局擊殺經驗。主動寶石以乘算成長；輔助依種類成長。等級低於角色時的追趕倍率最多四倍。
+
+## 明確的改編
+
+- 原作某些玩法需要手動瞄準、手動蓄力、引爆或使用另一顆技能。本作改為單一自動主動，以鄰近敵人選擇方向及落點；瓦爾靈魂不足時以對應普通技能代用；誓約與需要第二個技能的互動採自帶的輔助攻擊。
+- 訓練武器依目前技能切換，不另做裝備詞綴或裝備要求。藥劑額外傷害、所有原作裝備／技能觸發組合、逐級原作數值、與真實地形的碰撞不是此版本的涵蓋項目。技能前景與地面形狀是遊戲的簡化圖形。
+- 「完整導入」指本頁定義範圍內每個條目皆有繁中名稱、編譯資料、獨立或共用機制配置，所有主動可在引擎中發射並對測試敵群造成效果。它不表示每條原作邊界條件均逐一複製。

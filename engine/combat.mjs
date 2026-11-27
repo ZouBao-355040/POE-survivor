@@ -11,16 +11,17 @@ export function attack({attacker,target,skill,modifiers,rolls,context={}}){
 }
 export function resolveAttackImpact({attacker,target,skill,modifiers,rolls,context={}}){
  context={...context,...(skill.context??{})};
- const hit=resolveHit({source:'attack',accuracy:attacker.accuracy,evasion:target.evasion,entropy:target.entropy??0,criticalChance:skill.criticalChance??0,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
+ const hit=resolveHit({source:skill.source??'attack',accuracy:attacker.accuracy,evasion:target.evasion,entropy:target.entropy??0,criticalChance:skill.criticalChance??0,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
  const nextTarget={...target,entropy:hit.entropy};
  if(!hit.hit)return {performed:true,hit,attacker:attacker,target:nextTarget};
  const base=prepareBaseDamage(skill.baseDamage,modifiers,context,skill.effectiveness??1);
  const packets=convertDamage(base,skill.conversion??[]);
  const damage=aggregateDamage(scalePackets(packets,modifiers,context));
- for(const t of Object.keys(damage))damage[t]*=skill.damageMultiplier??1;
+ for(const t of Object.keys(damage))damage[t]*=(skill.damageMultiplier??1)*(skill.hitDamageMultiplier??1)*(skill.projectileDamageMultiplier??1)*(1+(skill.increasedProjectileDamage??0))*(['physical','chaos'].includes(t)?(skill.physicalChaosMultiplier??1):1);
  if(hit.critical)for(const t of Object.keys(damage))damage[t]*=skill.criticalMultiplier??1.5;
- const mitigation=mitigateHit({damage,source:'attack',defender:target.defence,penetration:skill.penetration,blockRoll:rolls.block});
+ const mitigation=mitigateHit({damage,source:skill.source??'attack',defender:target.defence,penetration:skill.penetration,blockRoll:rolls.block});
  const settlement=applyDamage(nextTarget,mitigation.damage,target.rules);
- const ignite=!mitigation.blocked&&(hit.critical||rolls.ignite<(skill.igniteChance??0))?igniteFromPackets(packets,modifiers,context,hit.critical):null;
- return {ignite:ignite?.rate>0?ignite:null,performed:true,hit,mitigation,attacker:attacker,target:settlement.state,dead:settlement.dead};
+ const ailmentScale=(skill.damageMultiplier??1)*(skill.projectileDamageMultiplier??1)*(1+(skill.increasedProjectileDamage??0));
+ const ignite=!mitigation.blocked&&(hit.critical||rolls.ignite<(skill.igniteChance??0))?igniteFromPackets(packets.map(p=>({...p,amount:p.amount*ailmentScale})),modifiers,context,hit.critical):null;
+ return {ignite:ignite?.rate>0?ignite:null,performed:true,hit,mitigation,damage,ailmentBase:aggregateDamage(packets),attacker:attacker,target:settlement.state,dead:settlement.dead};
 }
