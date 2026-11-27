@@ -1,5 +1,6 @@
 import {damageTypes,clamp} from './core.mjs';
 export function applyDamage(state,damage,rules={}){
+ if(rules.immuneChaos)damage={...damage,chaos:0};
  const next={...state};
  const total=damageTypes.reduce((n,t)=>n+Math.max(0,damage[t]??0),0);
  const chaos=Math.max(0,damage.chaos??0);
