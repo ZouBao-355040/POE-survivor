@@ -4,7 +4,9 @@ import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs';
 import {burningArrow} from './engine/starter-data.mjs';
 import {momentumSupport} from './engine/momentum.mjs';
+import {beginReward,rewardOptions} from './engine/rewards.mjs';
 let inventory;
+const catalog=[burningArrow,momentumSupport];
 const panel=document.createElement('section');panel.style.cssText='position:fixed;inset:12% 5%;overflow:auto;background:#20272d;padding:16px;border:1px solid #99845e;z-index:5';panel.hidden=true;document.body.append(panel);
 const toggle=document.createElement('button');toggle.textContent='寶石';document.querySelector('header').append(toggle);toggle.onclick=()=>{panel.hidden=!panel.hidden;renderGems();};
 let picked=null;
@@ -22,7 +24,11 @@ canvas.onpointerdown=e=>{origin={x:e.clientX,y:e.clientY};canvas.setPointerCaptu
 canvas.onpointermove=e=>{if(origin)dir={x:(e.clientX-origin.x)/40,y:(e.clientY-origin.y)/40};};
 canvas.onpointerup=canvas.onpointercancel=()=>{origin=null;dir={x:0,y:0};};
 document.querySelector('#restart').onclick=reset;
-document.querySelector('#resume').onclick=()=>{state.progression.pendingChoices--;reward.hidden=true;};
+function renderReward(){const p=state.progression;reward.replaceChildren();const h=document.createElement('h2');h.textContent='升級 · 獲得天賦點';reward.append(h);function button(label,action){const b=document.createElement('button');b.textContent=label;b.onclick=action;reward.append(b);}
+if(p.reward){for(const g of p.reward.options)button(g.id,()=>{state.progression=inventory.claim(p,g.id);renderReward();});return;}
+let available=0;for(const kind of ['active','support']){const config={catalog,board:inventory.board,ownedIds:inventory.ownedIds()};if(rewardOptions({...config,kind}).length){available++;button(kind==='active'?'主動技能':'輔助技能',()=>{state.progression=beginReward(p,kind,config);renderReward();});}}
+if(!available){const msg=document.createElement('p');msg.textContent='目前測試寶石池已全部取得。';reward.append(msg);button('繼續戰鬥',()=>{state.progression={...p,pendingChoices:p.pendingChoices-1};renderReward();});}}
+
 function frame(now){try{
 acc+=Math.min(.1,(now-last)/1000);last=now;
 while(acc>=.02){const direction=origin?dir:{x:Number(keys.has('ArrowRight')||keys.has('d'))-Number(keys.has('ArrowLeft')||keys.has('a')),y:Number(keys.has('ArrowDown')||keys.has('s'))-Number(keys.has('ArrowUp')||keys.has('w'))};state=stepWorld(state,.02,{...hooks,direction,manaRegen:.846,enemyModifiers,spawnInterval:1.5,spawnRadius:12,experienceRequired:l=>l*30,enemyStats:{life:35,maximumLife:35,mana:0,energyShield:0,evasion:10,accuracy:50,defence:{},speed:2,attackRange:.7,experienceReward:10,attack:{baseDamage:{physical:5},attacksPerSecond:1,criticalChance:0}}});acc-=.02;}
@@ -36,7 +42,7 @@ for(const e of state.enemies){dot(e,.35,e.ignites?.length?'#e88939':'#a94e4e');c
 for(const a of state.projectiles){const [x,y]=point(a);ctx.strokeStyle='#ffd18a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-a.dx*scale*.6,y-a.dy*scale*.6);ctx.stroke();}dot(p,.42,'#9ac7a2');
 document.querySelector('#life').value=p.life/p.maximumLife;document.querySelector('#mana').value=p.mana/p.maximumMana;
 status.textContent='Lv. '+state.progression.level+' · '+Math.floor(state.time??0)+'s · 天賦點 '+(state.progression.passivePoints??0)+(state.dead?' · 已死亡':'');
-reward.hidden=!(state.progression.pendingChoices>0)||state.dead;
+const showReward=state.progression.pendingChoices>0&&!state.dead;if(showReward&&reward.hidden)renderReward();reward.hidden=!showReward;
 requestAnimationFrame(frame);
 }catch(e){status.textContent='引擎錯誤：'+e.message;console.error(e);}}
 requestAnimationFrame(frame);
