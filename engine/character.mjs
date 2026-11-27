@@ -10,8 +10,8 @@ export class Character {
  const strength=Math.floor(c(s,'strength')),dexterity=Math.floor(c(d,'dexterity')),intelligence=Math.floor(c(i,'intelligence'));
  const derived=new ModifierStore();
  derived.replace('attributes',[
- {stat:'evasion',kind:'increased',value:Math.floor(dexterity/5)*.01},
- {stat:'energyShield',kind:'increased',value:Math.floor(intelligence/5)*.01}
+ {stat:'evasion',kind:'increased',value:Math.ceil(dexterity/5)*.01},
+ {stat:'energyShield',kind:'increased',value:Math.floor(intelligence/10)*.01}
  ]);
  const defence=(base,stat)=>{const b=m.breakdown(stat,context),a=derived.breakdown(stat);return b.override??Math.floor(Math.max(0,(base+b.flat)*(1+b.increased+a.increased)*b.multipliers.reduce((x,y)=>x*y,1)));};
  return {strength,dexterity,intelligence,maximumLife:Math.floor(c(38+12*this.level+Math.floor(strength/2),'maximumLife')),maximumMana:Math.floor(c(34+6*this.level+Math.floor(intelligence/2),'maximumMana')),accuracy:Math.floor(c(2*dexterity+2*this.level,'accuracy')),meleePhysicalIncrease:Math.floor(strength/5)*.01,evasion:defence(15,'evasion'),energyShield:defence(0,'energyShield'),armour:Math.floor(c(0,'armour'))};
