@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {rollCurrencyChoices,claimLevelCurrency,currencyDrop,currencies} from './currency.mjs';
+import {newTownServices,emptyBattleLoot,queueBattleLoot,claimBattleLoot} from './town-services.mjs';
+import {stepWorld} from './game-loop.mjs';
+import {beginTrial,stepTrial} from './campaign.mjs';
+import {gemById} from './projectile-catalog.mjs';
+
+const player={x:0,y:0,life:100,maximumLife:100,mana:50,maximumMana:50};
+test('level reward gives three unique random currency choices and spends a single pending level',()=>{
+ const choices=rollCurrencyChoices(()=>.999);
+ assert.equal(new Set(choices).size,3);
+ assert.ok(choices.every(g=>currencies.includes(g)));
+ assert.ok(choices.includes('富豪石')&&choices.includes('點金石'));
+ const state={level:4,pendingChoices:2},wallet={'增幅石':2};
+ assert.throws(()=>claimLevelCurrency(state,wallet,choices,'蛻變石'),/未提供/);
+ const result=claimLevelCurrency(state,wallet,choices,'增幅石');
+ assert.equal(result.progression.pendingChoices,1);
+ assert.deepEqual(result.wallet,{'增幅石':3});
+ assert.equal(wallet['增幅石'],2);
+ assert.throws(()=>claimLevelCurrency({level:1},wallet,choices,'增幅石'),/No pending/);
+});
+test('kill loot does not enter the wallet on the field; multiple areas preserve it until exactly one settlement',()=>{
+ const killed=stepWorld({player,enemies:[{id:'one',x:9,y:0,life:0,goldReward:3}],gold:4,goldDrops:[],projectiles:[]},.02,{deferLoot:true});
+ assert.equal(killed.gold,4);assert.deepEqual(killed.goldDrops,[]);
+ const gem=gemById.get('fireball');
+ const loot=queueBattleLoot(emptyBattleLoot(),killed.events[0],{gem,random:()=>0});
+ const later=beginTrial({...killed,pendingLoot:loot});
+ assert.equal(later.pendingLoot,loot);
+ const bonus=queueBattleLoot(later.pendingLoot,{gold:5,boss:true},{gem,random:()=>.99});
+ const hillock=queueBattleLoot(bonus,{gold:0,boss:true},{hillock:true});
+ const claim=claimBattleLoot(newTownServices(),4,hillock,()=>.8);
+ assert.equal(claim.town.gear.length,1);
+ assert.equal(claim.gold,4+3+5+9);
+ assert.equal(claim.claimedOrbs,3);
+ assert.deepEqual(claim.town.orbs,{});
+ assert.equal(claim.town.storedOrbs['富豪石'],1);
+ assert.equal(claim.town.storedGems.get(gem.id).experience,0);
+ assert.equal(claim.claimedGems,1);
+ assert.deepEqual(claim.pending,emptyBattleLoot());
+ const next=claimBattleLoot(claim.town,claim.gold,claim.pending);
+ assert.equal(next.gold,claim.gold);
+ assert.deepEqual(next.town,claim.town);
+ assert.equal(currencyDrop({boss:false},()=>.7),null);
+});
+test('area clear cannot discard a currency choice awarded on the final kill',()=>{
+ const rules={id:'tiny',name:'測試圖',duration:30,packs:1,packSize:1,maxActive:1,refillAt:0};
+ const opts={random:()=>.4,experienceRequired:()=>1,deferLoot:true};
+ const s=stepTrial(beginTrial({player,zone:'town',gold:0,progression:{level:1}},rules),.02,opts);
+ const clear=stepTrial({...s,enemies:s.enemies.map(e=>({...e,life:0}))},.02,opts);
+ assert.equal(clear.encounter.phase,'cleared');
+ assert.ok(clear.progression.pendingChoices>0);
+});

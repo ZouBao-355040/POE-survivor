@@ -1,16 +1,17 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.1';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.1';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.1';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.2';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.2';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.2';
 import {ModifierStore} from './engine/modifiers.mjs';
-import {GemInventory} from './engine/gem-inventory.mjs';
-import {gemPrice,purchaseGem,shopStock} from './engine/gem-shop.mjs';
-import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.1';
+import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.2';
+import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.2';
+import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.2';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
-import {grantExperience,resolveLevelChoice} from './engine/progression.mjs';
+import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.1';
-import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,hillockLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,itemAffix} from './engine/town-services.mjs';
+import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.2';
+import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,claimBattleLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.2';
+import {claimLevelCurrency,rollCurrencyChoices} from './engine/currency.mjs';
 
 const $=s=>document.querySelector(s);
 const panel=$('#gem-panel'),toggle=$('#gems'),canvas=$('canvas'),ctx=canvas.getContext('2d'),status=$('#status'),reward=$('#reward');
@@ -33,8 +34,8 @@ function card(g,fn,selected=false,training=false){
  if(!training&&g.experience!==undefined){const xp=document.createElement('small');xp.textContent=(g.level??1)>=gemLevelCap?'已達最高等級':'經驗 '+g.experience+'/'+gemXpRequired(g.level??1);b.append(xp);}
  return b;
 }
-let inventory,hooks,state,townItems,guide=false,picked=null,tab='owned',search='',filter='all';
-let shopTab='active',shopSearch='',shopCompatible=true;
+let inventory,hooks,state,townItems,activeCurrencyChoices=null,guide=false,picked=null,tab='owned',search='',filter='all';
+let shopTab='active',shopSearch='',shopCompatible=true,shopShowLocked=false;
 let dir={x:0,y:0},origin=null,last=performance.now(),acc=0,toastUntil=0;
 const keys=new Set();
 function clearInput(){keys.clear();origin=null;dir={x:0,y:0};}
@@ -44,13 +45,13 @@ const ownedOrStored=()=>[...inventory.ownedIds(),...townItems.storedGems.keys()]
 function reset(askGuide=true){
  inventory=new GemInventory();
  inventory.acquire(gemById.get('burning-arrow'));inventory.acquire(gemById.get('momentum'));
- townItems=newTownServices();modifiers.remove('town-gear');guide=false;
+ townItems=newTownServices({starter:true});inventory.setLayout(equippedSocketLayout(townItems));modifiers.remove('town-gear');guide=false;
  picked=null;tab='owned';if(panel.open)panel.close();
  if(townDialog.open)townDialog.close();if(guideChoice.open)guideChoice.close();if(gameMenu.open)gameMenu.close();
  clearInput();acc=0;shopTab='active';shopSearch='';shopCompatible=true;hooks=rangerHooks({modifiers,inventory});
  state={zone:'beach',gateOpen:false,routeIndex:0,chapterComplete:false,player:{x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}},
-  enemies:openingBeach(),projectiles:[],flasks:starterFlasks(),gold:0,goldDrops:[],time:0,progression:{level:1},kills:0};
- $('#toast').textContent='';reward.hidden=true;
+  enemies:openingBeach(),projectiles:[],flasks:starterFlasks(),gold:0,goldDrops:[],pendingLoot:emptyBattleLoot(),time:0,progression:{level:1},kills:0};
+ $('#toast').textContent='';reward.hidden=true;town.inert=false;activeCurrencyChoices=null;
  if(askGuide)guideChoice.showModal();
 }
 function startGuide(want){
@@ -63,14 +64,21 @@ guideChoice.addEventListener('cancel',e=>{e.preventDefault();startGuide(false);}
 function enterTown(){
  if(state.zone==='beach'){
   if(!canEnterTown(state))return;
-  state.progression={...grantExperience(state.progression,state.beachXP??0,xpCost),pendingChoices:0};
+  state.progression=grantExperience(state.progression,state.beachXP??0,xpCost);
   state={...state,zone:'town',enemies:[],projectiles:[],fields:[],goldDrops:[],time:0,
     cooldown:0,nextSpawn:0,flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,x:0,y:0}};
  }else if(state.zone==='trial'&&(state.dead||state.encounter?.phase==='cleared')){
   const route=advanceRoute(state);
-  state={...route,zone:'town',dead:false,progression:{...state.progression,pendingChoices:0},encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
+  state={...route,zone:'town',dead:false,encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
     flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,x:0,y:0}};
  }else return;
+ const claimed=claimBattleLoot(townItems,state.gold,state.pendingLoot);
+ townItems=claimed.town;state.gold=claimed.gold;state.pendingLoot=claimed.pending;
+ if(claimed.hillock){
+  const loot=claimed.hillock;
+  state.openingLoot='西拉克戰利品：'+loot.gold+' 金幣'+(loot.item?'、'+loot.item.name+'、'+loot.orb:'');
+ }
+ state.lootReceipt=claimed.claimedGold||claimed.claimedOrbs||claimed.claimedGems?'回城已收取：'+claimed.claimedGold+' 金幣、'+claimed.claimedOrbs+' 顆通貨、'+claimed.claimedGems+' 顆寶石'+(claimed.hillock?.item?'、1 件裝備':''):'';
  acc=0;clearInput();$('#toast').textContent='';
 }
 function startStage(route){
@@ -79,9 +87,10 @@ function startStage(route){
  if(townDialog.open)townDialog.close();
  state=beginTrial(route,next);acc=0;clearInput();$('#toast').textContent='';
 }
-function leaveTown(){if(state.zone==='town')startStage(state);}
-function nextZone(){const route=advanceRoute(state);if(route!==state)startStage(route);}
+function leaveTown(){if(state.zone==='town'&&!state.progression.pendingChoices)startStage(state);}
+function nextZone(){if(state.progression.pendingChoices)return;const route=advanceRoute(state);if(route!==state)startStage(route);}
 function updateEquipment(){
+ inventory.setLayout(equippedSocketLayout(townItems));
  const stats=equippedStats(townItems),p=state.player,maximumLife=70+stats.life;
  modifiers.replace('town-gear',stats.attack?[{stat:'damage',kind:'increased',value:stats.attack,tags:['attack']}]:[]);
  state.player={...p,maximumLife,life:Math.min(p.life,maximumLife),speed:4*stats.speed};
@@ -124,6 +133,7 @@ function renderGems(){
   gems.append(tile);
  }
  panel.append(gems,heading('裝備插槽','h3'));
+ if(!state.practice)panel.append(div('只顯示已穿戴裝備的插槽。卸下裝備時，該部位的寶石會回到持有寶石。','muted'));
  for(const [group,slots] of Object.entries(inventory.board.groups)){
   const wrapper=div('','gem-row'),row=div('','button-row');wrapper.append(heading(socketNames[group],'h3'));
   slots.forEach((g,i)=>{
@@ -175,14 +185,32 @@ function renderLibrary(){
  if(tab==='library')for(const [k,n] of [['all','全部'],['active','主動'],['support','輔助'],['enabled','已接入']])toolbar.append(button(n,()=>{filter=k;for(const b of toolbar.querySelectorAll('button'))b.setAttribute('aria-pressed',b.textContent===n);refresh();},{selected:filter===k}));
  input.addEventListener('input',()=>{search=input.value;refresh();});panel.append(toolbar,summary,result);refresh();
 }
-function renderShop(inTown=false){
- const p=state.progression,surface=inTown?townDialog:reward;
+function renderLevelReward(){
+ reward.replaceChildren();
+ const choices=rollCurrencyChoices();
+ activeCurrencyChoices=choices;
+ const level=state.progression.level-state.progression.pendingChoices+1;
+ reward.append(heading('等級 '+level+' · 通貨三選一'),div('選一顆通貨，直接存入倉庫。','muted'));
+ const options=div('','currency-choices');
+ for(const orb of choices)options.append(button(orb+' ×1',()=>{
+  if(activeCurrencyChoices!==choices||!state.progression.pendingChoices||state.dead)return;
+  const result=claimLevelCurrency(state.progression,townItems.storedOrbs,choices,orb);
+  state.progression=result.progression;
+  townItems={...townItems,storedOrbs:result.wallet};
+  notify('已取得 '+orb);
+  if(state.progression.pendingChoices>0)renderLevelReward();
+  else {activeCurrencyChoices=null;reward.hidden=true;town.inert=false;}
+ }));
+ reward.append(options);
+}
+function renderShop(){
+ const surface=townDialog;
  surface.replaceChildren();
  const top=div('','shop-top');
- top.append(heading(inTown?'獅眼守望 · 寶石商':'等級 '+p.level+' · 寶石商店'));
+ top.append(heading('獅眼守望 · 寶石商'));
  const wallet=div('持有金幣：'+state.gold,'shop-wallet');wallet.id='shop-wallet';
  top.append(wallet);
- top.append(div('選你要的寶石。可以買多顆，也可以把金幣留到下次。','muted'));
+ top.append(div('普通寶石隨主線與角色等級開放。覺醒、變異等特殊寶石不販售。','muted'));
  const tools=div('','toolbar');
  const chosen=inventory.current()?.active;
  const filter=button(shopCompatible?'只看目前技能相容':'顯示全部輔助',()=>{
@@ -190,14 +218,15 @@ function renderShop(inTown=false){
  },{selected:shopCompatible});
  const activeBtn=button('主動技能',()=>changeTab('active'),{selected:shopTab==='active'});
  const supportBtn=button('輔助寶石',()=>changeTab('support'),{selected:shopTab==='support'});
+ const locked=button('顯示未解鎖',()=>{
+  shopShowLocked=!shopShowLocked;locked.textContent=shopShowLocked?'隱藏未解鎖':'顯示未解鎖';
+  locked.setAttribute('aria-pressed',shopShowLocked);refresh();
+ },{selected:shopShowLocked});
+ locked.textContent=shopShowLocked?'隱藏未解鎖':'顯示未解鎖';
  const input=document.createElement('input');input.type='search';input.placeholder='搜尋寶石';input.setAttribute('aria-label','搜尋商店寶石');input.value=shopSearch;
  const results=div('','library-list shop-list');
  const count=div('','muted');
- const done=button(inTown?'關閉':'繼續戰鬥',()=>{
-  if(inTown){townDialog.close();return;}
-  state.progression=resolveLevelChoice(p);
-  if(state.progression.pendingChoices>0)renderShop();else reward.hidden=true;
- });
+ const done=button('關閉',()=>townDialog.close());
  function changeTab(kind){
   shopTab=kind;shopSearch='';input.value='';
   activeBtn.setAttribute('aria-pressed',kind==='active');supportBtn.setAttribute('aria-pressed',kind==='support');
@@ -206,25 +235,32 @@ function renderShop(inTown=false){
  function refresh(){
   const active=shopTab==='support'&&shopCompatible?chosen:null;
   const q=shopSearch.trim().toLowerCase();
-  const offers=shopStock(catalog,ownedOrStored(),shopTab,active).filter(g=>!q||g.name.toLowerCase().includes(q)||g.id.includes(q.replaceAll(' ','-')));
-  count.textContent=offers.length?offers.length+' 顆可選寶石':'沒有符合條件的未持有寶石。';
+  const context={progression:state.progression,campaign:shopCampaign(state)};
+  const stock=shopStock(catalog,ownedOrStored(),shopTab,active).map(g=>({g,status:gemAvailability(g,context)}))
+   .filter(({g,status})=>status.listed&&(!q||g.name.toLowerCase().includes(q)||g.id.includes(q.replaceAll(' ','-'))));
+  const offers=stock.filter(({status})=>status.available||shopShowLocked||q)
+   .sort((a,b)=>Number(b.status.available)-Number(a.status.available)||a.status.requiredLevel-b.status.requiredLevel);
+  count.textContent=offers.length?offers.filter(({status})=>status.available).length+' 顆已解鎖':'沒有符合條件的普通寶石。';
   results.replaceChildren();
-  for(const g of offers){
+  for(const {g,status} of offers){
    const cost=gemPrice(g);
    const item=card({...g,name:g.name+' · '+cost+' 金幣'},()=>{
-    const bought=purchaseGem({progression:state.progression,gold:state.gold,catalog,ownedIds:ownedOrStored(),inTown:inTown&&state.zone==='town'},g.id);
+    const bought=purchaseGem({progression:state.progression,campaign:shopCampaign(state),gold:state.gold,
+      catalog,ownedIds:ownedOrStored(),inTown:state.zone==='town'},g.id);
     inventory.acquire(bought.gem);
     state.gold=bought.gold;
     wallet.textContent='持有金幣：'+state.gold;
     notify('已購買 '+g.name+'，可在寶石背包插上並選為目前技能。');
     refresh();
    },false,true);
-   item.classList.add('shop-item');item.disabled=state.gold<cost;results.append(item);
+   if(!status.available)item.append(div('未解鎖：'+status.reason,'shop-lock'));
+   else if(state.gold<cost)item.append(div('金幣不足','shop-lock'));
+   item.classList.add('shop-item');item.disabled=!status.available||state.gold<cost;results.append(item);
   }
  }
  input.addEventListener('input',()=>{shopSearch=input.value;refresh();});
  filter.hidden=shopTab!=='support'||!chosen;
- tools.append(activeBtn,supportBtn,filter,input);
+ tools.append(activeBtn,supportBtn,filter,locked,input);
  top.append(tools,count);
  surface.append(top,results,done);
  refresh();
@@ -276,10 +312,10 @@ function renderStash(){
  for(const g of townItems.storedGems.values())row(g.name+' · 等級 '+g.level,{label:'取出 '+g.name,run:()=>{transferGem(townItems,inventory,g.id,false);renderStash();}});
 }
 function openService(render){
- if(state.zone!=='town')return;
+ if(state.zone!=='town'||state.progression.pendingChoices)return;
  clearInput();render();townDialog.showModal();
 }
-$('#gem-merchant').onclick=()=>openService(()=>renderShop(true));
+$('#gem-merchant').onclick=()=>openService(renderShop);
 $('#gear-merchant').onclick=()=>openService(renderGambler);
 $('#stash-keeper').onclick=()=>openService(renderStash);
 reset();
@@ -309,7 +345,7 @@ function simulate(){
  const direction=origin?dir:{x:Number(keys.has('arrowright')||keys.has('d'))-Number(keys.has('arrowleft')||keys.has('a')),
   y:Number(keys.has('arrowdown')||keys.has('s'))-Number(keys.has('arrowup')||keys.has('w'))};
  const step=state.zone==='beach'?stepBeach:state.zone==='trial'?stepTrial:stepWorld;
- state=step(state,.02,{...hooks,direction,manaRegen:state.practice?22:2.85,enemyModifiers,experienceRequired:state.practice?null:xpCost});
+ state=step(state,.02,{...hooks,direction,manaRegen:state.practice?22:2.85,enemyModifiers,experienceRequired:state.practice?null:xpCost,deferLoot:true});
  for(const ev of state.events??[]){
   if(ev.type==='boss-arrives')notify(ev.reason==='clear'?'普通怪已清空，'+ev.name+' 提前登場！':'時間到，'+ev.name+' 已登場！');
   if(ev.type==='trial-cleared')notify(state.encounter.stageName+'通關。');
@@ -320,11 +356,13 @@ function simulate(){
    state.kills++;
    const ups=inventory.grantExperience(ev.experience,state.progression.level);
    if(ups.length)notify(ups.map(g=>g.name+' 升到 '+g.level+' 級').join('、'));
-   if(ev.target===hillockId&&!state.dead){
-    const loot=hillockLoot(townItems);townItems=loot.town;state.gold+=loot.gold;
-    state.openingLoot='西拉克戰利品：'+loot.gold+' 金幣'+(loot.item?'、'+loot.item.name+'、'+loot.orb:'');
-    notify(state.openingLoot+'。往右走到城門。');
+   if(state.zone==='beach'||state.zone==='trial'){
+    const gem=state.zone==='trial'?selectDroppedGem(ev,catalog,
+     [...ownedOrStored(),...state.pendingLoot.gems.map(g=>g.id)],
+     {progression:state.progression,campaign:shopCampaign(state)}):null;
+    state.pendingLoot=queueBattleLoot(state.pendingLoot,ev,{hillock:ev.target===hillockId,rollCurrency:state.zone==='trial',gem});
    }
+   if(ev.target===hillockId&&!state.dead)notify('西拉克已擊敗。往右走到城門，回城會自動收取戰利品。');
   }
  }
  if(!enabled())clearInput();
@@ -378,10 +416,6 @@ function render(){
   ctx.strokeStyle=cast.element==='cold'?'#9cdcff':'#f79255';ctx.lineWidth=2;ctx.stroke();
   ctx.beginPath();ctx.arc(x,y,r*progress,0,Math.PI*2);ctx.stroke();
  }
- for(const loot of state.goldDrops??[]){
-  const [x,y]=point(loot);ctx.fillStyle='#f9d381';ctx.strokeStyle='#62461c';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x+5,y);ctx.lineTo(x,y+5);ctx.lineTo(x-5,y);ctx.closePath();ctx.fill();ctx.stroke();
- }
  for(const e of state.enemies){dot(e,e.radius??.35,e.boss?'#c67c4e':e.frozenUntil>state.time?'#b2e9ff':e.ignites?.length?'#e88939':e.dots?.length?'#aecc71':e.family==='fire-eater'?'#efab69':e.family==='crab'?'#87a6ad':'#ad5d63');const [x,y]=point(e);ctx.fillStyle='#d98187';ctx.fillRect(x-8,y-10,16*Math.max(0,e.life/e.maximumLife),3);
   if(e.boss){ctx.fillStyle='#ffd1a4';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText(e.name,x,y-17);ctx.textAlign='start';}
  }
@@ -421,6 +455,9 @@ function render(){
  const n=Math.floor(state.time??0);
  status.textContent=(trial?.stageName??places[state.zone])+' · 等級 '+state.progression.level+' · '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')+' · 擊殺 '+state.kills+(state.dead?' · 已死亡':'');
  $('#gold-hud').textContent='金幣 '+state.gold;
+ const pending=state.pendingLoot;
+ $('#field-loot').hidden=!pending.gold&&!pending.orbs.length&&!pending.gems.length&&!pending.hillock;
+ $('#field-loot').textContent='待回城：'+pending.gold+' 金幣 · '+pending.orbs.length+' 通貨 · '+pending.gems.length+' 寶石'+(pending.hillock?' · 西拉克戰利品':'');
  const selected=inventory.current()?.active;
  const attackName=selected?selected.name+' 等級 '+selected.level:'普通攻擊';
  $('#hint').textContent=state.zone==='beach'?attackName+(state.gateOpen?' · 往右走到城門':' · 往右，擊敗西拉克'):
@@ -428,6 +465,7 @@ function render(){
  town.hidden=state.zone!=='town';
  if(state.zone==='town'){
   $('#opening-loot').textContent=state.openingLoot??'';
+  $('#town-loot').textContent=state.lootReceipt??'';
   const next=trialStage(state.routeIndex??0);
   $('#leave-town').hidden=!next;
   if(next)$('#leave-town').textContent='前往'+next.name;
@@ -460,9 +498,10 @@ function render(){
  const back=$('#return-town');back.hidden=!trial||(!state.dead&&trial.phase!=='cleared');
  if(!back.hidden)back.textContent=state.dead?'返回獅眼守望 · 重試':'返回獅眼守望';
  if(state.time>=toastUntil)$('#toast').textContent='';
- const showReward=state.zone==='trial'&&state.progression.pendingChoices>0&&!state.dead;
- if(showReward&&reward.hidden)renderShop();
- reward.hidden=!showReward;
+ const showReward=(state.zone==='trial'||state.zone==='town')&&state.progression.pendingChoices>0&&!state.dead;
+ if(showReward&&reward.hidden)renderLevelReward();
+ reward.hidden=!showReward;town.inert=showReward;
+ if(!showReward)activeCurrencyChoices=null;
 }
 function frame(now){
  try{

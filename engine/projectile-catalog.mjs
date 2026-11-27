@@ -1,5 +1,5 @@
 import {extraProfiles} from './projectile-families.mjs';
-import {gemIndex} from './projectile-index.mjs';
+import {gemIndex} from './projectile-index.mjs?v=0.5.2';
 import {momentumSupport} from './momentum.mjs';
 
 const activeProfiles = {
@@ -65,7 +65,7 @@ function makeActive(key,profile){
   if(m)conversion.push({from:m[1],to:m[2],fraction:pct/100,kind:'convert',priority:'skill'});
  }
  const radius=(s.active_skill_base_area_of_effect_radius??12)/10;
- return {id:idFor(key,g),sourceKey:key,kind:'active',name:g.zh,level:1,tags:g.tags,types:g.types,weaponTypes:g.weapons??[],
+ return {id:idFor(key,g),sourceKey:key,kind:'active',name:g.zh,level:1,requiredLevel:g.requiredLevel,tags:g.tags,types:g.types,weaponTypes:g.weapons??[],
   cost:g.mana??0,baseSpellDamage:d,baseAddedDamage:added,castTime:(g.castMs??1000)/1000,spellCriticalChance:(g.crit??500)/10000,
   weaponDamageMultiplier:1+(g.attackDamage??0)/10000,effectiveness:spell?(g.effectiveness??100)/100:1+(g.attackDamage??0)/10000,
   attackSpeedMultiplier:1+(g.attackSpeed??0)/100,conversion,igniteChance:(s['base_chance_to_ignite_%']??s['chance_to_freeze_shock_ignite_%']??0)/100,
@@ -129,7 +129,7 @@ const intrinsicallyFixed=new Set(['SplitArrowAltX','TornadoShot','TornadoShotAlt
 function makeSupport(key,profile){
  const g=gemIndex[key];
  const projectile=g.tags.includes('projectile');
- return {id:idFor(key,g),sourceKey:key,name:g.zh,kind:'support',costMultiplier:(g.costMultiplier??100)/100,
+ return {id:idFor(key,g),sourceKey:key,name:g.zh,kind:'support',requiredLevel:g.requiredLevel,tags:g.tags,costMultiplier:(g.costMultiplier??100)/100,
   requiresAll:projectile?['projectile']:[],supportRules:g.supportRules,
   ...profile,appliesTo(active){
    if(!(active.tags.includes('attack')||active.tags.includes('spell')))return false;

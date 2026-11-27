@@ -24,9 +24,10 @@ test('boss can drop only a few coins or grant gear and an orb in addition to gol
  assert.equal(poor.gold,2);assert.equal(poor.item,null);assert.equal(poor.orb,null);
  const rich=hillockLoot(town,()=>.8);
  assert.ok(rich.gold>5);assert.equal(rich.item.rarity,'稀有');
- assert.equal(rich.town.orbs[rich.orb],1);
+ assert.equal(rich.town.storedOrbs[rich.orb],1);
  assert.equal(rich.town.gear.length,1);
- const stored=transferOrb(rich.town,rich.orb,true);
+ const carried=transferOrb(rich.town,rich.orb,false);
+ const stored=transferOrb(carried,rich.orb,true);
  assert.deepEqual(stored.orbs,{});assert.equal(stored.storedOrbs[rich.orb],1);
  assert.equal(transferOrb(stored,rich.orb,false).orbs[rich.orb],1);
 });
@@ -54,7 +55,7 @@ test('stash preserves gem level and experience, and storefront checks ownership 
  assert.throws(()=>purchaseGem({inTown:true,gold:9,catalog:[gem],ownedIds:[...town.storedGems.keys()]},gem.id),/已擁有/);
  transferGem(town,inventory,gem.id,false);
  assert.equal(inventory.owned.get(gem.id).experience,19);
- assert.equal(purchaseGem({inTown:true,gold:9,catalog:[{id:'other',kind:'active'}],ownedIds:[]},'other').gold,6);
+ assert.equal(purchaseGem({inTown:true,campaign:{chapter:1,reachedTown:true,cleared:0},gold:9,catalog:[{id:'other',kind:'active'}],ownedIds:[]},'other').gold,6);
 });
 
 import {beginTrial,trialBudget,stepTrial,coastBossId,coastRules} from './campaign.mjs';
@@ -111,7 +112,7 @@ test('deadline forces one boss at the hard cap without granting a phantom kill o
  assert.equal(s.encounter.phase,'cleared');assert.equal(s.enemies.length,1);
  assert.equal(s.gold,10);assert.deepEqual(stepTrial(s,.02,rng),{...s,events:[]});
 });
-test('deadline wins a same-tick final kill and the shop pauses the encounter',()=>{
+test('deadline wins a same-tick final kill and the reward pauses the encounter',()=>{
  let s=trialStart({duration:1,packs:1,packSize:1,maxActive:2,refillAt:1});
  s=stepTrial(s,.02,rng);
  s=withKills({...s,time:.99},1);

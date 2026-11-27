@@ -28,3 +28,7 @@ h2,h3,p{margin:.6em 0}h2{color:var(--gold);font-size:1.28em}h3{font-size:1em}.mu
 #boss-hud div{display:flex;justify-content:space-between;gap:10px;color:#ffcfcc;font-size:12px;font-variant-numeric:tabular-nums}#boss-meter{width:100%;height:10px;accent-color:#cb5660;display:block}
 #route-actions{position:fixed;bottom:86px;left:10px;right:10px;display:flex;justify-content:center;gap:8px;pointer-events:none;z-index:2}#route-actions button{border-color:var(--gold);pointer-events:auto}
 @media(max-width:440px){#boss-hud{top:max(107px,calc(env(safe-area-inset-top) + 107px))}}
+.shop-lock{color:#e5bc7e;font-size:.84rem}.shop-item:disabled:has(.shop-lock){opacity:.76}
+.currency-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:12px}.currency-choices button{min-height:48px}
+#field-loot{position:fixed;right:12px;bottom:69px;color:var(--gold);font-size:11px;pointer-events:none;text-align:right}#town-loot{color:#f2cf88;font-size:12px}
+#field-loot{bottom:90px}#town-loot:empty{display:none}

@@ -26,7 +26,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.1/);
+ assert.match(await text('.brand'),/v0\.5\.2/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -48,6 +48,9 @@ async function verify(viewport,mobile){
  await btn('要教學').click();
  const bag=page.locator('#gem-panel');
  assert.match(await bag.innerText(),/步驟 1／3/);
+ assert.equal(await bag.getByRole('heading',{name:'武器',exact:true}).count(),1);
+ assert.equal(await bag.getByRole('heading',{name:'胸甲',exact:true}).count(),1);
+ for(const slot of ['鞋子','頭盔','手套'])assert.equal(await bag.getByRole('heading',{name:slot,exact:true}).count(),0);
  await btn(/^燃燒箭矢 · 等級 1/,bag).click();
  assert.match(await bag.innerText(),/步驟 2／3/);
  await btn('○',bag).first().click();
@@ -71,10 +74,21 @@ async function verify(viewport,mobile){
  await page.keyboard.up('d');
  for(let i=0;i<6&&!await btn('進入獅眼守望').isVisible();i++)await page.clock.runFor(1800);
  assert.ok(await btn('進入獅眼守望').isVisible(),await text('#status'));
+ assert.match(await text('#gold-hud'),/^金幣 0$/);
+ assert.match(await text('#field-loot'),/西拉克戰利品/);
  await btn('進入獅眼守望').click();
  await page.clock.runFor(200);
  assert.ok(await page.getByRole('heading',{name:'獅眼守望',exact:true}).isVisible());
  assert.match(await text('#opening-loot'),/西拉克戰利品：\d+ 金幣、[^、]+、/);
+ assert.match(await text('#town-loot'),/回城已收取：\d+ 金幣、1 顆通貨、0 顆寶石、1 件裝備/);
+ assert.equal(await page.locator('#field-loot').isVisible(),false);
+ const reward=page.locator('#reward');
+ assert.match(await reward.innerText(),/通貨三選一/);
+ const choices=await reward.getByRole('button').allTextContents();
+ assert.equal(new Set(choices).size,3);
+ const rewardOrb=choices[0].replace(/ ×1$/,'');
+ await btn(choices[0],reward).click();
+ assert.equal(await reward.isVisible(),false);
  const inTown=await snapshot();await page.clock.runFor(1800);assert.deepEqual(await snapshot(),inTown);
  const services=page.locator('#town-dialog');
  await btn(/^裝備賭商/).click();
@@ -83,19 +97,46 @@ async function verify(viewport,mobile){
  const equip=btn(/^穿戴 .*靴/,services);
  assert.ok(await equip.isVisible());
  await equip.click();
+ await btn('關閉',services).click();
+ await btn('寶石').click();
+ const bootRow=bag.locator('.gem-row').filter({has:page.getByRole('heading',{name:'鞋子',exact:true})});
+ assert.equal(await btn('○',bootRow).count(),4);
+ await btn(/^動量輔助 · 等級 1/,bag).click();
+ await btn('○',bootRow).first().click();
+ assert.equal(await btn(/^動量輔助 1$/,bootRow).count(),1);
+ await btn('關閉',bag).click();
+ await btn(/^裝備賭商/).click();
  await btn(/^卸下 .*靴/,services).click();
+ await btn('關閉',services).click();
+ await btn('寶石').click();
+ assert.equal(await bootRow.count(),0);
+ assert.equal(await btn(/^動量輔助 · 等級 1/,bag).count(),1);
+ await btn('關閉',bag).click();
+ await btn(/^裝備賭商/).click();
  await btn('關閉',services).click();
  await btn(/^倉庫保管員/).click();
  const deposit=btn(/^存入 .*靴/,services);assert.ok(await deposit.isVisible());
  await deposit.click();
  await btn(/^取出 .*靴/,services).click();
- await btn(/^存入 .*石/,services).click();
- await btn(/^取出 .*石/,services).click();
+ assert.equal(await btn('取出 '+rewardOrb,services).isVisible(),true);
+ assert.equal(await btn('存入 '+rewardOrb,services).count(),0);
+ await btn('取出 '+rewardOrb,services).click();
+ await btn('存入 '+rewardOrb,services).click();
  await btn(/^存入 動量/,services).click();
  await btn(/^取出 動量/,services).click();
  await btn('關閉',services).click();
  await btn(/^寶石商/).click();
- await services.getByRole('searchbox',{name:'搜尋商店寶石'}).fill('裂化箭矢');
+ const search=services.getByRole('searchbox',{name:'搜尋商店寶石'});
+ await search.fill('龍捲射擊');
+ const tornado=btn(/^龍捲射擊 · 3 金幣/,services);
+ assert.equal(await tornado.isDisabled(),true);
+ assert.match(await tornado.innerText(),/抵達第三章.*角色等級 28/s);
+ assert.equal(await btn(/^龍捲射擊．雲爆/,services).count(),0);
+ await btn('輔助寶石',services).click();
+ await search.fill('覺醒');
+ assert.equal(await services.locator('.shop-item').count(),0);
+ await btn('主動技能',services).click();
+ await search.fill('裂化箭矢');
  const before=Number((await text('#shop-wallet')).split('：')[1]);
  assert.ok(before>=3);
  await btn(/^裂化箭矢 · 3 金幣/,services).click();
@@ -111,7 +152,7 @@ async function verify(viewport,mobile){
   for(let turn=0;turn<300;turn++){
    if(await btn('前往炙熱鹽沼').isVisible())break;
    if((await text('#status')).includes('已死亡'))throw new Error('Browser walkthrough died at '+await text('#status'));
-   if(await btn('繼續戰鬥',page.locator('#reward')).isVisible())await btn('繼續戰鬥',page.locator('#reward')).click();
+   if(await reward.isVisible())await reward.getByRole('button').first().click();
    if(await page.locator('#boss-hud').isVisible()){
     assert.match(await text('#boss-label'),/怒炎之使/);
     assert.match(await text('#boss-hp'),/700$/);
@@ -121,7 +162,11 @@ async function verify(viewport,mobile){
    await page.keyboard.down(key);await page.clock.runFor(680);await page.keyboard.up(key);
   }
   assert.ok(sawBoss,'portrait HUD must render during the real boss fight');
+  while(await reward.isVisible())await reward.getByRole('button').first().click();
+  const walletBefore=await text('#gold-hud');
   await btn('前往炙熱鹽沼').click();
+  assert.equal(await text('#gold-hud'),walletBefore);
+  assert.match(await text('#field-loot'),/[1-9]\d* 金幣/);
   await page.clock.runFor(200);
   assert.match(await text('#status'),/^炙熱鹽沼/);
   assert.match(await text('#zone-objective'),/雕紋 0\/3/);
@@ -171,7 +216,7 @@ async function verify(viewport,mobile){
   assert.equal(draw.landingMarkers>0,payload,'only Cloudburst marks an airborne landing');
  }
  assert.deepEqual(failures,[]);
- console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、出鎮與兩種龍捲射擊通過。');
+ console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、通貨三選一、穿戴插槽與兩種龍捲射擊通過。');
  await page.close();
 }
 try{

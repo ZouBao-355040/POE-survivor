@@ -34,7 +34,7 @@ for key,g in gems.items():
       'en': name, 'zh': zh.get(slug) or extra.get(key), 'slug':slug, 'effect':active.get('id'), 'support':bool(g.get('is_support')),
       'tags': [tag for tag in tags if tag not in {'grants_active_skill','strength','dexterity','intelligence','support'}],
       'types':active.get('types'), 'weapons':active.get('weapon_restrictions'), 'supportRules':{k:v for k,v in support.items() if 'type' in k or 'weapon' in k},
-      'mana':costs.get('Mana'), 'castMs':g.get('cast_time'), 'crit':st.get('crit_chance'),
+      'requiredLevel':lev.get('required_level'), 'mana':costs.get('Mana'), 'castMs':g.get('cast_time'), 'crit':st.get('crit_chance'),
       'attackSpeed':st.get('attack_speed_multiplier'), 'attackDamage':lev.get('damage_multiplier'),
       'effectiveness':lev.get('damage_effectiveness') if lev.get('damage_effectiveness') is not None else st.get('damage_effectiveness'),
       'costMultiplier':lev.get('cost_multiplier') or st.get('cost_multiplier'),

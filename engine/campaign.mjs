@@ -1,5 +1,5 @@
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.1';
+import {stepWorld} from './game-loop.mjs?v=0.5.2';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -25,7 +25,7 @@ export function canEnterTown(state){
 export function stepBeach(state,dt,options){
  if(state.zone!=='beach'||state.paused||state.dead)return state;
  const next=stepWorld(state,dt,{...options,enemyStats:null,
-  // The tutorial awards XP without interrupting the route with a level shop.
+  // The tutorial awards XP without interrupting the route with a reward prompt.
   experienceRequired:null});
  const opened=next.events.some(e=>e.type==='kill'&&e.target===hillockId);
  const x=Math.max(bounds.left,Math.min(bounds.right,next.player.x)),y=Math.max(bounds.top,Math.min(bounds.bottom,next.player.y));
@@ -124,7 +124,7 @@ function finishStage(next){
  const encounter=next.encounter;
  const gold=next.gold+(next.goldDrops??[]).reduce((total,item)=>total+item.amount,0);
  const waiting=encounter.glyphs.some(g=>!g.taken);
- return {...next,gold,goldDrops:[],enemyCasts:[],progression:{...next.progression,pendingChoices:0},
+ return {...next,gold,goldDrops:[],enemyCasts:[],
   ...(waiting?{enemies:[],projectiles:[],fields:[]}:{}),
   encounter:{...encounter,phase:waiting?'glyphs':'cleared',heldEnemy:null},
   events:[...next.events,{type:waiting?'glyphs-needed':'trial-cleared'}]};

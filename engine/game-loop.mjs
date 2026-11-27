@@ -7,7 +7,7 @@ import {mitigateDot,integrateDot} from './dot.mjs';
 import {applyDamage} from './resources.mjs';
 import {resolveAttackImpact} from './combat.mjs';
 import {grantExperience} from './progression.mjs';
-export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired}={}){
+export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired,deferLoot=false}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
  if(state.paused||state.dead||state.progression?.pendingChoices>0)return {...state,events:[]};
  let flasks=state.flasks;
@@ -63,8 +63,8 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time,enemies,env);if(shot){player=shot.player??player;projectiles.push(...(shot.projectiles??[shot.projectile]));cooldown=shot.cooldown;events.push({type:'fire',target:target.id,skill:shot.skill});}}
  let progression=state.progression,flaskCharges=0;
  const dropped=[];
- const economy=Number.isSafeInteger(state.gold)&&!state.practice;
- for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;if(economy&&player.life>0)dropped.push({x:e.x,y:e.y,amount:e.goldReward??1});events.push({type:'kill',target:e.id,experience:e.experienceReward??0});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
+ const economy=Number.isSafeInteger(state.gold)&&!state.practice&&!deferLoot;
+ for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;if(economy&&player.life>0)dropped.push({x:e.x,y:e.y,amount:e.goldReward??1});events.push({type:'kill',target:e.id,experience:e.experienceReward??0,gold:e.goldReward??1,boss:!!e.boss});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
  if(flasks){const result=autoFlasks(player,flasks,flaskCharges);flasks=result.flasks;for(const resource of result.used)events.push({type:'flask',resource});}
  let wallet={};
  if(economy&&player.life>0){
