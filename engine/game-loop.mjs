@@ -1,13 +1,13 @@
 import {moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
-import {advanceProjectile} from './projectile.mjs';
+import {stepProjectiles} from './projectile.mjs';
 import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot} from './dot.mjs';
 import {applyDamage} from './resources.mjs';
 import {resolveAttackImpact} from './combat.mjs';
 import {grantExperience} from './progression.mjs';
-export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,momentum,manaRegen=0,enemyModifiers,experienceRequired}={}){
+export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,onTerminate,onPulse,onTick,momentum,manaRegen=0,enemyModifiers,experienceRequired}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
- if(state.dead||state.progression?.pendingChoices>0)return {...state,events:[]};
+ if(state.paused||state.dead||state.progression?.pendingChoices>0)return {...state,events:[]};
  let player={...state.player},enemies=state.enemies.map(e=>({...e})),projectiles=[],events=[];
  let time=state.time??0,nextSpawn=state.nextSpawn??0,nextId=state.nextId??0;
  const length=Math.hypot(direction.x,direction.y);
@@ -16,12 +16,23 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(Number.isFinite(player.maximumMana))player.mana=Math.min(player.maximumMana-(player.reservedMana??0),(player.mana??0)+manaRegen*dt);
  enemies=enemies.map(e=>{let target=e;for(const i of igniteIntervals(e.ignites??[],time,time+dt)){if(target.life<=0)break;const rates=mitigateDot({fire:i.rate},target.defence);target=applyDamage(target,Object.fromEntries(Object.entries(rates).map(([k,v])=>[k,v*(i.end-i.start)])),target.rules).state;}return {...target,ignites:(e.ignites??[]).filter(i=>i.end>time+dt)};});
  enemies=enemies.map(e=>e.life>0?moveToward(e,player,e.speed??0,dt,e.attackRange??.5):e);
- for(const original of state.projectiles){let p=original,left=dt;while(left>0){const result=advanceProjectile(p,left,enemies.filter(e=>!p.volley?.hits.has(e.id)));if(result.hitId){p.volley?.hits.add(result.hitId);const i=enemies.findIndex(e=>e.id===result.hitId);if(onImpact)enemies[i]=onImpact(enemies[i],p,time+dt);events.push({type:'impact',target:result.hitId});}const used=p.speed>0?(p.remainingRange-result.projectile.remainingRange)/p.speed:left;left=Math.max(0,left-used);p=result.projectile;if(result.expired)break;if(!result.hitId||left<=1e-9){projectiles.push(p);break;}}}
+ const hit=(e,p)=>{const i=enemies.findIndex(t=>t.id===e.id);if(i<0||enemies[i].life<=0)return;if(onImpact)enemies[i]=onImpact(enemies[i],p,time+dt,player);events.push({type:'impact',target:e.id,skill:p.skill?.id});};
+ const env={player,enemies,hit,time:time+dt};
+ const fields=[];
+ env.addField=field=>fields.push(field);
+ for(const field of state.fields??[]){
+  if(field.until<=time)continue;
+  if(field.next<=time){onPulse?.(field,env);fields.push({...field,next:field.next+field.pulseEvery});}
+  else fields.push(field);
+ }
+ projectiles=stepProjectiles(state.projectiles,dt,{enemies,player,impact:hit,pulse:p=>onPulse?.(p,env),terminate:(p,e)=>onTerminate?.(p,e,env)});
+ onTick?.(env,dt);
+
  if(enemyModifiers)for(const e of enemies){if(e.life<=0||player.life<=0||!e.attack)continue;e.attackCooldown=Math.max(0,(e.attackCooldown??0)-dt);if(e.attackCooldown===0&&Math.hypot(e.x-player.x,e.y-player.y)<=(e.attackRange??.5)){const result=resolveAttackImpact({attacker:e,target:player,skill:e.attack,modifiers:enemyModifiers,rolls:{critical:random(),confirmation:random(),block:random(),ignite:random()}});player=result.target;e.attackCooldown=1/e.attack.attacksPerSecond;events.push({type:'enemyAttack',source:e.id,dead:result.dead??false});}}
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
  const target=nearestEnemy(player,enemies,player.attackRange??10);
  if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time);if(shot){player=shot.player??player;projectiles.push(...(shot.projectiles??[shot.projectile]));cooldown=shot.cooldown;events.push({type:'fire',target:target.id});}}
  let progression=state.progression;
  for(const e of enemies.filter(e=>e.life<=0)){events.push({type:'kill',target:e.id});if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
- return {...state,progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,time:time+dt,nextSpawn,nextId,cooldown,events};
+ return {...state,progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,time:time+dt,nextSpawn,nextId,cooldown,events};
 }
