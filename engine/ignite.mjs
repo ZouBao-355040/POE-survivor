@@ -1,10 +1,10 @@
-export function igniteFromPackets(packets,modifiers,context={},critical=false){
+export function igniteFromPackets(packets,modifiers,context={},critical=false,multiplierOverride){
  let rate=0;
  for(const p of packets.filter(p=>p.type==='fire')){
  const keys=[...new Set(['damage','damageOverTime','elementalDamage','burningDamage','igniteDamage',...p.history.map(t=>t+'Damage')])];
  const b=modifiers.breakdown(keys,context);
  const d=modifiers.breakdown(['dotMultiplier','fireDotMultiplier'],context);
- rate+=p.amount*.9*Math.max(0,1+b.increased)*b.multipliers.reduce((x,y)=>x*y,1)*Math.max(0,1+d.flat+(critical?.5:0));
+ rate+=p.amount*.9*Math.max(0,1+b.increased)*b.multipliers.reduce((x,y)=>x*y,1)*Math.max(0,multiplierOverride??(1+d.flat+(critical?.5:0)));
  }
  return {rate,duration:4};
 }

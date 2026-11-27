@@ -1,6 +1,6 @@
 import {starterFlasks} from './flasks.mjs?v=0.5.14';
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.14';
+import {stepWorld} from './game-loop.mjs?v=0.5.15';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -22,7 +22,7 @@ export function openingBeach(){
 }
 // Keep defeated enemies defeated: retry cannot duplicate tutorial rewards or reopen Hillock's fight.
 function clearTransientRecovery(player={}){
- const {activeLeech,ghostClock,ghostShrouds,recoupEffects,...rest}=player;return rest;
+ const {activeLeech,ghostClock,ghostShrouds,recoupEffects,lastAttackHit,...rest}=player;return rest;
 }
 export function retryBeach(state){
  if(state.zone!=='beach'||!state.dead)return state;

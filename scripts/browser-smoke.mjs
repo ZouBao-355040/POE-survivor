@@ -27,7 +27,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.14/);
+ assert.match(await text('.brand'),/v0\.5\.15/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
  assert.equal(await text('#campaign-character'),'遊俠');
@@ -336,7 +336,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.14',async route=>{
+ await page.route('**/play.mjs?v=0.5.15',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
@@ -369,7 +369,7 @@ async function verifyVaalPact(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.14',async route=>{
+ await page.route('**/play.mjs?v=0.5.15',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -405,7 +405,7 @@ async function verifyGhostDance(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.14',async route=>{
+ await page.route('**/play.mjs?v=0.5.15',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -442,7 +442,7 @@ async function verifyAttackRecovery(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.14',async route=>{
+ await page.route('**/play.mjs?v=0.5.15',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -490,7 +490,7 @@ async function verifySkillCost(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.14',async route=>{
+ await page.route('**/play.mjs?v=0.5.15',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -524,8 +524,58 @@ async function verifySkillCost(){
  await page.close();
  console.log('技能消耗：手機配置生命專精後，實際一次燃燒箭矢扣除 6 魔力及 1 生命。');
 }
+async function verifyWindAndAgony(){
+ const {allocate,tracePath}=await import('../engine/passive-tree.mjs');
+ let p={characterClass:'Ranger',level:1,passivePoints:30};
+ for(const end of [11239,23407])for(const id of tracePath(p,end).slice(1,-1))p=allocate(p,id);
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
+ const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{Math.random=()=>.4;});
+ await page.route('**/play.mjs?v=0.5.15',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker='updateEquipment({refill:true});guideChoice.close();';
+  const allocation='updateEquipment();return state.progression;';
+  assert.ok(source.includes(marker)&&source.includes(allocation));
+  const fixture=`updateEquipment();if(id===11239||id===23407){
+    Object.assign(state.player,{life:70,maximumLife:100,lifeRegen:0,energyShield:0,maximumEnergyShield:0,evasion:0,defence:{},lastAttackHit:undefined});
+    state.flasks={life:{charges:0,remaining:0},mana:{charges:0,remaining:0}};
+    state.cooldown=99;
+    state.enemies=id===11239?[{id:'wind-fixture',x:.2,y:0,radius:.4,life:1000,maximumLife:1000,speed:0,evasion:0,accuracy:1000,defence:{},attack:{baseDamage:{physical:10},attacksPerSecond:1.5}}]:
+      [{id:'agony-fixture',x:2.3,y:0,radius:.4,life:1000,maximumLife:1000,speed:0,evasion:0,defence:{},boss:true,name:'絕對受難測試目標'}];
+    state.projectiles=id===23407?[{x:0,y:0,dx:1,dy:0,speed:35,remainingRange:4,skill:{id:'agony-probe',source:'spell',active:{tags:[]},baseDamage:{fire:10},criticalChance:1,criticalMultiplier:2.5},rolls:{critical:0,confirmation:0,block:.4,ignite:.4}}]:[];
+   }return state.progression;`;
+  await route.fulfill({response,body:source.replace(marker,`state.progression=${JSON.stringify(p)};updateEquipment({refill:true});state.enemies=[];guideChoice.close();`).replace(allocation,fixture)});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ const pick=async(id,check)=>{
+  await page.locator('#talent-open').click();
+  await page.getByRole('searchbox',{name:'搜尋天賦'}).fill(String(id));
+  await page.locator(`[data-talent-id="${id}"]`).click();
+  assert.match(await page.locator('.talent-details').innerText(),check);
+  await page.locator(`[data-talent-allocate="${id}"]`).click();
+  await page.keyboard.press('Escape');
+ };
+ await pick(11239,/近期未被攻擊擊中/);
+ await page.clock.runFor(250);
+ assert.equal(await page.locator('#life-num').innerText(),'62/100');
+ await page.clock.runFor(550);
+ assert.equal(await page.locator('#life-num').innerText(),'50/100');
+ await pick(23407,/暴擊不造成額外擊中傷害/);
+ await page.clock.runFor(250);
+ const hp=()=>page.locator('#boss-meter').evaluate(node=>node.value);
+ const first=await hp();
+ assert.ok(first>=980&&first<990,first);
+ await page.clock.runFor(450);
+ assert.ok(await hp()<980);
+ assert.deepEqual(errors,[]);
+ await page.close();
+ console.log('風魔舞者與絕對受難：手機配置後，首擊減傷、再擊增傷、暴擊傷害轉為點燃均實測。');
+}
 try{
- if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();await verifySkillCost();}
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();await verifySkillCost();await verifyWindAndAgony();}
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}
