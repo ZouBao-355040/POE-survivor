@@ -1,5 +1,5 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.4.0';
-import {stepWorld} from './engine/game-loop.mjs?v=0.4.0';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.4.1';
+import {stepWorld} from './engine/game-loop.mjs?v=0.4.1';
 import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs';
@@ -8,7 +8,7 @@ import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience,resolveLevelChoice} from './engine/progression.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs';
+import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.4.1';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,hillockLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,itemAffix} from './engine/town-services.mjs';
 
 const $=s=>document.querySelector(s);
@@ -375,7 +375,7 @@ function render(){
   if(trial.phase==='waves'){
    const secs=Math.max(0,Math.ceil(trial.duration-state.time-1e-9));
    const remaining=trial.total-trial.generated+state.enemies.filter(e=>!e.boss).length;
-   hud.textContent='尾王倒數 '+Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0')+' · 普通怪剩 '+remaining+'/'+trial.total;
+   hud.textContent='尾王倒數 '+Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0')+' · 普通怪剩 '+remaining+'/'+trial.total+' · 在場 '+state.enemies.length+'/'+trial.maxActive;
   }else if(trial.phase==='boss'){
    const boss=state.enemies.find(e=>e.boss);
    hud.textContent=(trial.bossReason==='clear'?'清怪提前出王':'倒數到時出王')+' · 怒炎之使'+(boss?' '+Math.ceil(100*boss.life/boss.maximumLife)+'%':'');

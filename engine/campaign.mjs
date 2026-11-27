@@ -37,7 +37,7 @@ export function stepBeach(state,dt,options){
  return {...next,player:{...next.player,x,y},gold,goldDrops,gateOpen:!!(state.gateOpen||opened),beachXP};
 }
 
-export const coastRules=Object.freeze({duration:120,packs:10,packSize:6,spacing:8,minimumGap:.8});
+export const coastRules=Object.freeze({duration:120,packs:10,packSize:6,maxActive:12,refillAt:6});
 export const coastBossId='coast-boss';
 export function trialBudget({packs,packSize},{extraPacks=0,increasedPackSize=0}={}){
  const groups=Math.max(0,Math.floor(packs+extraPacks));
@@ -46,54 +46,70 @@ export function trialBudget({packs,packSize},{extraPacks=0,increasedPackSize=0}=
 }
 export function beginTrial(state,rules=coastRules,mapMods){
  const budget=trialBudget(rules,mapMods);
+ const maxActive=rules.maxActive??coastRules.maxActive;
+ const refillAt=rules.refillAt??Math.floor(maxActive/2);
+ if(!Number.isSafeInteger(maxActive)||maxActive<1||!Number.isSafeInteger(refillAt)||refillAt<0||refillAt>=maxActive)
+  throw new RangeError('Active ceiling must exceed the non-negative refill line');
  return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,dead:false,
   paused:false,projectiles:[],enemies:[],fields:[],goldDrops:[],events:[],
-  player:{...state.player,x:0,y:0},encounter:{...budget,generated:0,packsSpawned:0,lastSpawn:null,
-   duration:rules.duration,spacing:rules.spacing,minimumGap:rules.minimumGap,minimumActive:rules.minimumActive??budget.perGroup,phase:'waves',bossReason:null}};
+  player:{...state.player,x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
+   duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null}};
 }
-function nextPack(player,encounter,random){
- const {packsSpawned,perGroup,generated}=encounter;
- const angle=2.399963*packsSpawned+random()*Math.PI/2;
- const x=player.x+Math.cos(angle)*11,y=player.y+Math.sin(angle)*11;
- return Array.from({length:perGroup},(_,i)=>{
-  const side=(i-(perGroup-1)/2)*.62;
-  return shoreEnemy('coast-'+(generated+i),x+side*Math.sin(angle),y-side*Math.cos(angle),
-   17+Math.floor(packsSpawned/3)*3,{speed:1.58+.07*(i%3),physical:3+Math.floor(packsSpawned/4),experienceReward:6});
- });
+function refill(state,random){
+ const e=state.encounter;
+ const alive=state.enemies.filter(enemy=>enemy.life>0).length;
+ if(alive>e.refillAt)return state;
+ const count=Math.min(e.maxActive-alive,e.total-e.generated);
+ if(count<=0)return state;
+ const additions=[];
+ let arrivals=e.arrivals;
+ while(additions.length<count){
+  const groupLength=Math.min(e.perGroup,count-additions.length);
+  const angle=2.399963*arrivals+random()*Math.PI/2;
+  arrivals++;
+  const x=state.player.x+Math.cos(angle)*11,y=state.player.y+Math.sin(angle)*11;
+  for(let i=0;i<groupLength;i++){
+   const n=e.generated+additions.length,band=Math.floor(n/e.perGroup),side=(i-(groupLength-1)/2)*.62;
+   additions.push(shoreEnemy('coast-'+n,x+side*Math.sin(angle),y-side*Math.cos(angle),17+Math.floor(band/3)*3,
+    {speed:1.58+.07*(i%3),physical:3+Math.floor(band/4),experienceReward:6}));
+  }
+ }
+ return {...state,enemies:[...state.enemies,...additions],encounter:{...e,arrivals,generated:e.generated+additions.length}};
 }
 function createCoastBoss(player){
  return shoreEnemy(coastBossId,player.x+8,player.y,156,{boss:true,name:'怒炎之使',speed:1.58,
   range:1.4,physical:12,attacksPerSecond:.65,radius:.76,experienceReward:23,goldReward:9,flaskChargeReward:11});
 }
-function launchBoss(state,encounter,reason){
- return {...state,encounter:{...encounter,phase:'boss',bossReason:reason},
-  enemies:[...state.enemies,createCoastBoss(state.player)],
+function launchBoss(state,reason){
+ const e=state.encounter,enemies=[...state.enemies];
+ // Reserve one slot without treating the displaced monster as a kill.
+ const heldEnemy=enemies.length>=e.maxActive?enemies.pop():null;
+ return {...state,encounter:{...e,phase:'boss',bossReason:reason,heldEnemy},
+  enemies:[...enemies,createCoastBoss(state.player)],
   events:[...(state.events??[]),{type:'boss-arrives',reason}]};
 }
 export function stepTrial(state,dt,options={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('Trial step must be between 0 and 50ms');
  if(state.zone!=='trial'||state.paused||state.dead||state.progression?.pendingChoices>0||state.encounter?.phase==='cleared')return {...state,events:[]};
- let encounter=state.encounter,input=state;
- const elapsed=state.time??0,remaining=state.enemies.filter(e=>e.life>0&&!e.boss).length;
- if(encounter.phase==='waves'&&elapsed<encounter.duration&&encounter.generated<encounter.total){
-  const gap=elapsed-(encounter.lastSpawn??-Infinity);
-  if(gap>=encounter.spacing||(remaining<encounter.minimumActive&&gap>=encounter.minimumGap)){
-   const pack=nextPack(state.player,encounter,options.random??Math.random);
-   encounter={...encounter,packsSpawned:encounter.packsSpawned+1,generated:encounter.generated+pack.length,lastSpawn:elapsed};
-   input={...state,enemies:[...state.enemies,...pack],encounter};
-  }
- }
+ const random=options.random??Math.random;
+ // Load the starting monsters immediately, then check the threshold again after combat.
+ const input=state.encounter.phase==='waves'&&state.time<state.encounter.duration&&state.encounter.generated===0
+  ?refill(state,random):state;
  const next=stepWorld(input,dt,{...options,enemyStats:null});
  if(next.dead)return next;
+ const encounter=next.encounter;
  if(encounter.phase==='waves'){
-  // Crossing the deadline wins ties. Unspawned monsters never become a second wave after the boss.
-  if(next.time+1e-9>=encounter.duration)return launchBoss(next,encounter,'time');
-  if(encounter.generated===encounter.total&&next.enemies.length===0)return launchBoss(next,encounter,'clear');
+  if(next.time+1e-9>=encounter.duration)return launchBoss(next,'time');
+  if(encounter.generated===encounter.total&&next.enemies.length===0)return launchBoss(next,'clear');
+  return refill(next,random);
  }
  if(encounter.phase==='boss'&&next.events.some(event=>event.type==='kill'&&event.target===coastBossId)){
   const gold=next.gold+(next.goldDrops??[]).reduce((total,item)=>total+item.amount,0);
   return {...next,gold,goldDrops:[],progression:{...next.progression,pendingChoices:0},
-   encounter:{...encounter,phase:'cleared'},events:[...next.events,{type:'trial-cleared'}]};
+   encounter:{...encounter,phase:'cleared',heldEnemy:null},events:[...next.events,{type:'trial-cleared'}]};
+ }
+ if(encounter.phase==='boss'&&encounter.heldEnemy&&next.enemies.length<encounter.maxActive){
+  return {...next,enemies:[...next.enemies,encounter.heldEnemy],encounter:{...encounter,heldEnemy:null}};
  }
  return next;
 }

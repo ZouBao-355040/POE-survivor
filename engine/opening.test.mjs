@@ -58,63 +58,81 @@ test('stash preserves gem level and experience, and storefront checks ownership 
 });
 
 import {beginTrial,trialBudget,stepTrial,coastBossId,coastRules} from './campaign.mjs';
-const trialStart=(rules={duration:20,packs:2,packSize:2,spacing:4,minimumGap:1},mods)=>beginTrial({
+const trialStart=(rules={duration:20,packs:2,packSize:2,maxActive:2,refillAt:1},mods)=>beginTrial({
  player,gold:0,zone:'town',progression:{level:1},kills:0
 },rules,mods);
 const rng={random:()=>.4};
-test('map pack count and size modifiers calculate a finite normal budget',()=>{
+const withKills=(s,n)=>({...s,enemies:s.enemies.map((e,i)=>i<n?{...e,life:0}:e)});
+test('map pack count and size modifiers calculate a finite normal budget independent of active cap',()=>{
  assert.deepEqual(trialBudget(coastRules),{groups:10,perGroup:6,total:60});
  assert.deepEqual(trialBudget(coastRules,{extraPacks:2,increasedPackSize:.5}),{groups:12,perGroup:9,total:108});
+ assert.throws(()=>trialStart({packs:2,packSize:5,maxActive:4,refillAt:4}),RangeError);
 });
-test('empty waves accelerate but only the last generated and cleared wave triggers an early boss',()=>{
- let s=stepTrial(trialStart(),.02,rng);
- assert.equal(s.encounter.generated,2);assert.equal(s.enemies.length,2);
- s=stepTrial({...s,enemies:s.enemies.map(e=>({...e,life:0}))},.02,rng);
- assert.equal(s.enemies.length,0);assert.equal(s.encounter.phase,'waves');
- s=stepTrial({...s,time:1.01},.02,rng);
- assert.equal(s.encounter.packsSpawned,2);assert.equal(s.encounter.generated,4);
+test('threshold refills in the same tick, exact pack-size multiples not required',()=>{
+ let s=stepTrial(trialStart({duration:15,packs:4,packSize:3,maxActive:10,refillAt:5}),.02,rng);
+ assert.equal(s.encounter.generated,10);
+ s=stepTrial(withKills(s,4),.02,rng);
+ assert.equal(s.enemies.length,6);assert.equal(s.encounter.generated,10);
+ const at=s.time;
+ s=stepTrial(withKills(s,1),.02,rng);
+ assert.equal(s.time,at+.02);
+ assert.equal(s.enemies.length,7);assert.equal(s.encounter.generated,12);
+ assert.equal(new Set(s.enemies.map(e=>e.id)).size,7);
  assert.equal(s.encounter.phase,'waves');
- s=stepTrial({...s,enemies:s.enemies.map(e=>({...e,life:0}))},.02,rng);
+});
+test('remaining supply tops up to cap and only the final real kill triggers an early boss',()=>{
+ let s=stepTrial(trialStart(),.02,rng);
+ assert.equal(s.encounter.generated,2);
+ s=stepTrial(withKills(s,1),.02,rng);
+ assert.equal(s.encounter.generated,3);assert.equal(s.enemies.length,2);assert.equal(s.encounter.phase,'waves');
+ s=stepTrial(withKills(s,2),.02,rng);
+ assert.equal(s.encounter.generated,4);assert.equal(s.enemies.length,1);assert.equal(s.encounter.phase,'waves');
+ s=stepTrial(withKills(s,1),.02,rng);
  assert.equal(s.encounter.bossReason,'clear');assert.ok(s.time<s.encounter.duration);
  assert.equal(s.enemies.filter(e=>e.id===coastBossId).length,1);
  s=stepTrial({...s,time:20},.02,rng);
  assert.equal(s.enemies.filter(e=>e.id===coastBossId).length,1);
  assert.ok(!s.events.some(ev=>ev.type==='boss-arrives'));
 });
-test('deadline forces exactly one boss with living monsters and discards unspawned groups',()=>{
- let s=trialStart({duration:2,packs:5,packSize:2,spacing:4,minimumGap:1});
+test('deadline forces one boss at the hard cap without granting a phantom kill or new supply',()=>{
+ let s=trialStart({duration:2,packs:5,packSize:2,maxActive:2,refillAt:1});
  s=stepTrial(s,.02,rng);
- const normals=s.enemies.map(e=>e.id);
+ const [first,second]=s.enemies;
  s=stepTrial({...s,time:1.99},.02,rng);
  assert.equal(s.encounter.bossReason,'time');assert.equal(s.encounter.generated,2);
- assert.deepEqual(s.enemies.filter(e=>!e.boss).map(e=>e.id),normals);
- s=stepTrial({...s,time:30},.02,rng);
- assert.deepEqual(s.enemies.filter(e=>!e.boss).map(e=>e.id),normals);
- assert.equal(s.enemies.filter(e=>e.boss).length,1);
- const deadBoss=s.enemies.map(e=>e.boss?{...e,life:0}:e);
- s=stepTrial({...s,enemies:deadBoss},.02,rng);
- assert.equal(s.encounter.phase,'cleared');assert.equal(s.enemies.length,2);
- assert.equal(s.gold,9);
- assert.deepEqual(stepTrial(s,.02,rng),{...s,events:[]});
+ assert.equal(s.enemies.length,2);
+ assert.equal(s.encounter.heldEnemy.id,second.id);
+ assert.equal(s.enemies[0].id,first.id);
+ assert.equal(s.gold,0);assert.ok(!s.events.some(e=>e.type==='kill'));
+ s=stepTrial(withKills(s,1),.02,rng);
+ assert.equal(s.enemies.length,2);assert.equal(s.encounter.heldEnemy,null);
+ assert.ok(s.enemies.some(e=>e.id===second.id));assert.equal(s.enemies.filter(e=>e.boss).length,1);
+ s=stepTrial({...s,time:30,enemies:s.enemies.map(e=>e.boss?{...e,life:0}:e)},.02,rng);
+ assert.equal(s.encounter.phase,'cleared');assert.equal(s.enemies.length,1);
+ assert.equal(s.gold,10);assert.deepEqual(stepTrial(s,.02,rng),{...s,events:[]});
 });
 test('deadline wins a same-tick final kill and the shop pauses the encounter',()=>{
- let s=trialStart({duration:1,packs:1,packSize:1,spacing:4,minimumGap:1});
+ let s=trialStart({duration:1,packs:1,packSize:1,maxActive:2,refillAt:1});
  s=stepTrial(s,.02,rng);
- s={...s,time:.99,enemies:s.enemies.map(e=>({...e,life:0}))};
+ s=withKills({...s,time:.99},1);
  const shop={...s,progression:{...s.progression,pendingChoices:1}};
  assert.deepEqual(stepTrial(shop,.02,rng),{...shop,events:[]});
  s=stepTrial(s,.02,rng);
  assert.equal(s.encounter.bossReason,'time');
  assert.equal(s.enemies.filter(e=>e.boss).length,1);
 });
-test('low watermark refills before the arena empties without exceeding the map budget',()=>{
- let s=stepTrial(trialStart({duration:15,packs:3,packSize:3,spacing:8,minimumGap:.8}),.02,rng);
- assert.equal(s.encounter.minimumActive,3);
- const thinned=s.enemies.map((e,i)=>i===0?{...e,life:0}:e);
- s=stepTrial({...s,time:.3,enemies:thinned},.02,rng);
- assert.equal(s.enemies.length,2);assert.equal(s.encounter.generated,3);
- s=stepTrial({...s,time:.81},.02,rng);
- assert.equal(s.enemies.length,5);assert.equal(s.encounter.generated,6);
- s=stepTrial({...s,time:1.7},.02,rng);
- assert.equal(s.encounter.generated,6,'enough surviving enemies: no premature refill');
+test('a 100-monster map permits a fast clear without waiting for a scheduled wave',()=>{
+ const fastRules={duration:120,packs:10,packSize:10,maxActive:10,refillAt:5};
+ let s=stepTrial(trialStart(fastRules),.02,rng);
+ assert.equal(s.enemies.length,10);
+ for(let i=0;i<20;i++){
+  const time=s.time+1.8; // Test combat throughput, not a claim about a particular player build.
+  s=stepTrial(withKills({...s,time},5),.02,rng);
+  assert.ok(s.enemies.length<=10);
+  if(i===0){assert.equal(s.enemies.length,10);assert.equal(s.encounter.generated,15);}
+ }
+ assert.equal(s.encounter.generated,100);
+ assert.equal(s.encounter.bossReason,'clear');
+ const win=stepTrial(withKills({...s,time:s.time+5},1),.02,rng);
+ assert.equal(win.encounter.phase,'cleared');assert.ok(win.time<60);
 });
