@@ -27,7 +27,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.11/);
+ assert.match(await text('.brand'),/v0\.5\.12/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
  assert.equal(await text('#campaign-character'),'遊俠');
@@ -336,7 +336,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.11',async route=>{
+ await page.route('**/play.mjs?v=0.5.12',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
@@ -369,7 +369,7 @@ async function verifyVaalPact(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.11',async route=>{
+ await page.route('**/play.mjs?v=0.5.12',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -398,8 +398,44 @@ async function verifyVaalPact(){
  await page.close();
  console.log('瓦爾冥約：手機天賦實際配置後，紅水停止回復且保留充能。');
 }
+async function verifyGhostDance(){
+ const {allocate,tracePath}=await import('../engine/passive-tree.mjs');
+ let p={characterClass:'Ranger',level:1,passivePoints:25};
+ for(const id of tracePath(p,35255).slice(1,-1))p=allocate(p,id);
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
+ const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/play.mjs?v=0.5.12',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker='updateEquipment({refill:true});guideChoice.close();';
+  const allocation='updateEquipment();return state.progression;';
+  assert.ok(source.includes(marker)&&source.includes(allocation));
+  await route.fulfill({response,body:source.replace(marker,
+    `state.progression=${JSON.stringify(p)};updateEquipment({refill:true});state.enemies=[];guideChoice.close();`)
+   .replace(allocation,"updateEquipment();if(id===35255){Object.assign(state.player,{energyShield:20,maximumEnergyShield:150,evasion:100,esRegen:0,shieldInterruptedAt:state.time+100,defence:{},ghostClock:0,ghostShrouds:0});state.enemyCasts=[{x:0,y:0,source:'test',impactAt:state.time+2.6,radius:1,damage:8,element:'fire'}];}return state.progression;")});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ await page.locator('#talent-open').click();
+ await page.getByRole('searchbox',{name:'搜尋天賦'}).fill('鬼舞');
+ const node=page.locator('[data-talent-id="35255"]');
+ assert.equal(await node.getAttribute('data-talent-state'),'available');
+ await node.click();
+ assert.match(await page.locator('.talent-details').innerText(),/閃避值 3%/);
+ await page.locator('[data-talent-allocate="35255"]').click();
+ assert.equal(await node.getAttribute('data-talent-state'),'allocated');
+ await page.keyboard.press('Escape');
+ await page.clock.runFor(2150);
+ assert.equal(await page.locator('#es-meter').innerText(),'護盾 20/150 · 鬼影 1/3');
+ await page.clock.runFor(650);
+ assert.equal(await page.locator('#es-meter').innerText(),'護盾 15/150 · 鬼影 0/3');
+ assert.deepEqual(errors,[]);
+ await page.close();
+ console.log('鬼舞：手機配置後累積鬼影，實際吃到敵方法術時回復護盾並消耗一層。');
+}
 try{
- if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();}
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();}
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}

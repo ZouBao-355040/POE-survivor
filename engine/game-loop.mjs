@@ -1,14 +1,14 @@
-import {advancePlayerLeech} from './player-leech.mjs?v=0.5.11';
+import {advancePlayerLeech} from './player-leech.mjs?v=0.5.12';
 import {collectGold} from './gem-shop.mjs';
-import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.11';
+import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.12';
 import {moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot,integrateDot} from './dot.mjs';
-import {applyDamage,recover} from './resources.mjs?v=0.5.11';
+import {applyDamage,recover,recoveryLimit} from './resources.mjs?v=0.5.12';
 import {resolveAttackImpact} from './combat.mjs?v=0.5.7';
 import {rechargeShield} from './recovery.mjs';
-import {agnosticStep} from './keystones.mjs?v=0.5.11';
+import {agnosticStep,tickGhostShrouds,consumeGhostShroud} from './keystones.mjs?v=0.5.12';
 import {grantExperience} from './progression.mjs';
 export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,castPlan,manualRequest,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired,deferLoot=false}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
@@ -22,14 +22,18 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(Number.isFinite(player.maximumMana))player.mana=Math.min(player.maximumMana-(player.reservedMana??0),(player.mana??0)+manaRegen*dt);
  if(Number.isFinite(player.maximumLife)&&player.life>0&&player.lifeRegen>0)player.life=recover(player,'life',player.lifeRegen*dt).life;
  if(player.maximumEnergyShield>0){
-  const previous=player.energyShield??0;
+  const previous=Math.min(player.maximumEnergyShield,player.energyShield??0);
+  player.energyShield=previous;
   const since=time+dt-(player.shieldInterruptedAt??0);
   const charged=player.rules?.ghostReaver?previous:rechargeShield(previous,player.maximumEnergyShield,since,dt,{rate:player.esRechargeRate??1/3});
-  if(charged>previous&&!player.shieldCharging){player.shieldRechargeStarted=time+dt;player.shieldCharging=true;}
-  player.energyShield=Math.min(player.maximumEnergyShield,charged+(player.esRegen??0)*dt);
-  if(player.energyShield>=player.maximumEnergyShield)player.shieldCharging=false;
+  const recharged=recover(player,'energyShield',charged-previous).energyShield;
+  if(recharged>previous&&!player.shieldCharging){player.shieldRechargeStarted=time+dt;player.shieldCharging=true;}
+  player.energyShield=recharged;
+  player=recover(player,'energyShield',(player.esRegen??0)*dt);
+  if(player.energyShield>=recoveryLimit(player,'energyShield'))player.shieldCharging=false;
  }
  if(player.rules?.agnostic)player=agnosticStep(player,dt);
+ player=tickGhostShrouds(player,dt);
  if(flasks)({player,flasks}=advanceFlaskRecovery(player,flasks,dt));
  advancePlayerLeech(player,dt);
  enemies=enemies.map(e=>{let target=e;const defence=e.exposureUntil>time?{...e.defence,resistances:{...e.defence?.resistances,...Object.fromEntries((e.exposed??[]).map(type=>[type,(e.defence?.resistances?.[type]??0)-.25]))}}:e.defence;for(const i of igniteIntervals(e.ignites??[],time,time+dt)){if(target.life<=0)break;const rates=mitigateDot({fire:i.rate},defence);target=applyDamage(target,Object.fromEntries(Object.entries(rates).map(([k,v])=>[k,v*(i.end-i.start)])),target.rules).state;}if(target.life>0)target=applyDamage(target,integrateDot((e.dots??[]).map(i=>i.type==='chaos'&&e.witherUntil>time?{...i,rate:i.rate*1.15}:i),time,time+dt,defence),target.rules).state;return {...target,dots:(e.dots??[]).filter(i=>i.end>time+dt),ignites:(e.ignites??[]).filter(i=>i.end>time+dt)};});
@@ -60,7 +64,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
    if(result.rechargeInterrupted&&!(player.rules?.wickedWard&&player.shieldCharging&&time+dt-player.shieldRechargeStarted<4)){
     result.target.shieldInterruptedAt=time+dt;result.target.shieldCharging=false;
    }
-   player=result.target;
+   player=consumeGhostShroud(result.target,result);
    events.push({type:'enemyAttack',source:attacker.id,dead:result.dead??false});
   };
   for(const cast of state.enemyCasts??[]){

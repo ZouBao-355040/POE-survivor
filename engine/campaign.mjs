@@ -1,6 +1,6 @@
-import {starterFlasks} from './flasks.mjs?v=0.5.11';
+import {starterFlasks} from './flasks.mjs?v=0.5.12';
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.11';
+import {stepWorld} from './game-loop.mjs?v=0.5.12';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -21,13 +21,15 @@ export function openingBeach(){
  ];
 }
 // Keep defeated enemies defeated: retry cannot duplicate tutorial rewards or reopen Hillock's fight.
-function clearLeech(player){const next={...player};delete next.activeLeech;return next;}
+function clearTransientRecovery(player={}){
+ const {activeLeech,ghostClock,ghostShrouds,...rest}=player;return rest;
+}
 export function retryBeach(state){
  if(state.zone!=='beach'||!state.dead)return state;
  const survivors=new Set(state.enemies.filter(e=>e.life>0).map(e=>e.id));
  return {...state,dead:false,paused:false,time:0,cooldown:0,skillCooldowns:{},
   enemies:openingBeach().filter(e=>survivors.has(e.id)),projectiles:[],fields:[],enemyCasts:[],events:[],
-  flasks:starterFlasks(),player:{...clearLeech(state.player),x:0,y:0,life:state.player.maximumLife,
+  flasks:starterFlasks(),player:{...clearTransientRecovery(state.player),x:0,y:0,life:state.player.maximumLife,
    mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0}};
 }
 export function canEnterTown(state){
@@ -64,7 +66,7 @@ export function beginTrial(state,rules=coastRules,mapMods){
   throw new RangeError('Active ceiling must exceed the non-negative refill line');
  return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,skillCooldowns:{},dead:false,
   paused:false,projectiles:[],enemies:[],fields:[],enemyCasts:[],goldDrops:[],events:[],
-  player:{...clearLeech(state.player),x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
+  player:{...clearTransientRecovery(state.player),x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
    duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null,
    stageId:rules.id??'coast',stageName:rules.name??'暮光海灘',theme:rules.theme??'coast',
    rank:Math.max(0,actOne.findIndex(s=>s.id===rules.id)),

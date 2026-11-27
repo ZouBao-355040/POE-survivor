@@ -1,0 +1,111 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {allocate,tracePath,nodes} from './passive-tree.mjs';
+import {applyLoadout} from './player-loadout.mjs';
+import {ModifierStore} from './modifiers.mjs';
+import {newTownServices} from './town-services.mjs';
+import {stepWorld} from './game-loop.mjs';
+import {addHitLeech,advancePlayerLeech} from './player-leech.mjs';
+import {recover,applyDamage} from './resources.mjs';
+import {retryBeach} from './campaign.mjs';
+import {rangerHooks} from './ranger.mjs';
+import {catalog} from './projectile-catalog.mjs';
+
+const path=(state,end)=>tracePath(state,end).slice(1).reduce((s,id)=>allocate(s,id),state);
+const start={characterClass:'Ranger',level:1,passivePoints:120};
+const p={rules:{ghostDance:true},x:0,y:0,life:70,maximumLife:100,mana:30,maximumMana:50,energyShield:10,maximumEnergyShield:150,evasion:100,defence:{}};
+const hit={id:'attacker',x:.3,y:0,life:100,maximumLife:100,accuracy:1000,attack:{source:'attack',baseDamage:{fire:8},attacksPerSecond:1}};
+const state=(player=p,plus={})=>({player,enemies:[],projectiles:[],time:0,...plus});
+const sim=(s,seconds,options)=>{for(let i=0;i<Math.round(seconds*20);i++)s=stepWorld(s,.05,options);return s;};
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,a+' ≠ '+b);
+const incoming={enemyModifiers:new ModifierStore(),random:()=>.4};
+const load=progression=>applyLoadout(p,newTownServices({starter:true}),progression,new ModifierStore(),{refill:true});
+
+test('canonical Ghost Dance is allocatable for Ranger and the ES regeneration mastery actually ticks',()=>{
+ const route=path(start,35255);
+ assert.equal(nodes.get(35255).name,'鬼舞');
+ assert.equal(load(route).rules.ghostDance,true);
+ const pre=path(start,3452);
+ const normal=load(pre), mastered=load(allocate(pre,18240,35810));
+ assert.ok(mastered.maximumEnergyShield>0);
+ assert.equal(normal.esRegen,0);
+ near(mastered.esRegen,mastered.maximumEnergyShield*.02);
+ const after=sim(state({...mastered,energyShield:0}),1);
+ near(after.player.energyShield,mastered.maximumEnergyShield*.02);
+ const iron=load(path(route,10661)), agnostic=load(path(route,19732));
+ assert.equal(iron.rules.ghostDance,true);
+ assert.equal(iron.evasion,0);
+ assert.equal(agnostic.rules.ghostDance,true);
+ assert.equal(agnostic.maximumEnergyShield,0);
+});
+
+test('Ghost Dance clock follows unpaused combat time, caps at 3, and retry starts from zero',()=>{
+ let s=sim(state(),1.95);
+ assert.equal(s.player.ghostShrouds,0);
+ s=sim({...s,paused:true},3);
+ assert.equal(s.player.ghostShrouds,0);
+ s=sim({...s,paused:false},.05);
+ assert.equal(s.player.ghostShrouds,1);
+ s=sim(s,9);
+ assert.equal(s.player.ghostShrouds,3);
+ const retry=retryBeach({...s,zone:'beach',dead:true,player:{...s.player,life:0}});
+ assert.equal(retry.player.ghostShrouds,undefined);
+ assert.equal(retry.player.energyShield,p.maximumEnergyShield);
+ near(sim(retry,1).player.energyShield,p.maximumEnergyShield);
+});
+
+test('only an unblocked landed hit consumes a shroud, after the hit; DoT and a lethal hit do not trigger recovery',()=>{
+ const ready={...p,ghostShrouds:2};
+ const resolve=(player,enemy=hit,plus={})=>sim(state(player,{enemies:[enemy],...plus}),.05,incoming).player;
+ const normal=resolve(ready);
+ near(normal.energyShield,5); // Hit drains eight first; shroud restores three.
+ assert.equal(normal.ghostShrouds,1);
+ const block=resolve({...ready,defence:{attackBlock:.75}});
+ near(block.energyShield,10);
+ assert.equal(block.ghostShrouds,2);
+ const glancing=resolve({...ready,defence:{attackBlock:.75,blockedDamageFraction:.65}});
+ near(glancing.energyShield,4.8);
+ assert.equal(glancing.ghostShrouds,2);
+ const evade=resolve({...ready,entropy:0},{...hit,accuracy:0});
+ assert.equal(evade.ghostShrouds,2);
+ const spell={x:0,y:0,source:'caster',impactAt:.01,radius:1,damage:8,element:'fire'};
+ const dodge=resolve({...ready,defence:{spellDodge:.75}},{...hit,x:9},{enemyCasts:[spell]});
+ assert.equal(dodge.ghostShrouds,2);
+ const suppressed=resolve({...ready,defence:{suppressionChance:1}},{...hit,x:9},{enemyCasts:[spell]});
+ near(suppressed.energyShield,9);
+ assert.equal(suppressed.ghostShrouds,1);
+ const zero=resolve({...ready,rules:{...ready.rules,immuneChaos:true}}, {...hit,attack:{...hit.attack,baseDamage:{chaos:8}}});
+ near(zero.energyShield,13);
+ assert.equal(zero.ghostShrouds,1);
+ const fatal=resolve({...ready,life:1,energyShield:1});
+ assert.equal(fatal.life,0);
+ assert.equal(fatal.energyShield,0);
+ const dot=applyDamage(ready,{fire:2},ready.rules).state;
+ near(dot.energyShield,8);
+ assert.equal(dot.ghostShrouds,2);
+});
+
+test('Ghost Dance recovery cap applies to regen, recharge, instant and over-time leech and direct restoration',()=>{
+ const capped={...p,evasion:30,energyShield:29};
+ near(recover(capped,'energyShield',100).energyShield,30);
+ near(sim(state({...capped,esRegen:20}),.05).player.energyShield,30);
+ near(sim(state(capped,{time:5}),.05).player.energyShield,30);
+ near(sim(state({...capped,energyShield:60,esRegen:20},{time:5}),.05).player.energyShield,60);
+ near(sim(state({...capped,energyShield:0,rules:{ghostDance:true,ghostReaver:true}},{time:5}),.05).player.energyShield,0);
+ near(sim(state({...capped,energyShield:0,rules:{ghostDance:true,eldritchBattery:true},esRechargeRate:1/6},{time:5}),.05).player.energyShield,1.25);
+ near(recover({...capped,evasion:0,energyShield:0},'energyShield',100).energyShield,0);
+ near(recover({...capped,maximumEnergyShield:0,energyShield:0},'energyShield',100).energyShield,0);
+ const m=new ModifierStore();
+ m.replace('leech',[{stat:'leechEnergyShield',kind:'flat',value:1}]);
+ const result={hit:{hit:true},mitigation:{damage:{physical:100}}}, shot={skill:{source:'attack'}};
+ const instant={...capped,leechConfig:{instant:.1}};
+ addHitLeech(instant,shot,result,m);
+ near(instant.energyShield,30);
+ const rate={...capped,rules:{ghostDance:true,ghostReaver:true}};
+ addHitLeech(rate,shot,result,m);
+ advancePlayerLeech(rate,1);
+ near(rate.energyShield,30);
+ const shell=catalog.find(g=>g.shell),hooks=rangerHooks({modifiers:m,active:shell,random:()=>.4});
+ const withShell=sim(state({...capped,energyShield:0,evasion:5,mana:50},{enemies:[{...hit,x:3}]}),.05,hooks);
+ near(withShell.player.energyShield,5);
+});

@@ -1,9 +1,9 @@
 import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.11';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.12';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
-import {resourceKeystones} from './keystones.mjs?v=0.5.11';
+import {resourceKeystones} from './keystones.mjs?v=0.5.12';
 
-const baseline=['life','mana','es','evasion','accuracy','armour','move','manaRegen','lifeRegen','lifeRegenPct','manaRegenFlat',
+const baseline=['life','mana','es','evasion','accuracy','armour','move','manaRegen','lifeRegen','lifeRegenPct','esRegenPct','manaRegenFlat',
  'esRecharge','suppress','suppressLucky','suppressPrevented','attackBlock','spellBlock','strength','dexterity','intelligence','lifeWithoutBodyLife',
  'damagePerDex','speedToDamage','bowSpeedToDamage','criticalUnique','criticalFull','reducedCritExtra','skillManaRecover','lowLifeThreshold',
  'fullLifeThreshold','sixLifeMasteries'];
@@ -57,7 +57,7 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   maximumMana,mana:refill?maximumMana:Math.min(player.mana,maximumMana),
   maximumEnergyShield,energyShield:refill?maximumEnergyShield:Math.min(player.energyShield??0,maximumEnergyShield),
   esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),
-  lifeRegen:keys.has('zealotsOath')?0:regen(),esRegen:keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0,manaRegenMultiplier:Math.max(0,1+up('manaRegen')),manaRegenFlat:sum('manaRegenFlat'),
+  lifeRegen:keys.has('zealotsOath')?0:regen(),esRegen:maximumEnergyShield*sum('esRegenPct')+(keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0),manaRegenMultiplier:Math.max(0,1+up('manaRegen')),manaRegenFlat:sum('manaRegenFlat'),
   rules,leechConfig,defence:{...player.defence,armour,resistances,maximumResistances,reducedCritExtra:sum('reducedCritExtra'),
    attackBlock:sum('attackBlock')*(keys.has('glancing')?2:1),spellBlock:sum('spellBlock')*(keys.has('glancing')?2:1),
    blockedDamageFraction:keys.has('glancing')?.65:0,suppressionPrevented:.5+sum('suppressPrevented'),

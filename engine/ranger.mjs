@@ -1,9 +1,9 @@
-import {addHitLeech} from './player-leech.mjs?v=0.5.11';
+import {addHitLeech} from './player-leech.mjs?v=0.5.12';
 import {compileAttack} from './skill.mjs?v=0.5.7';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
-import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.11';
+import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.12';
 import {resolveAttackImpact} from './combat.mjs?v=0.5.7';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
@@ -109,7 +109,11 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(chosen!==basicBowAttack&&player.rules?.skillManaRecover&&random()<.1)payment.state.mana=Math.min(player.maximumMana,payment.state.mana+player.maximumMana*.1);
   if(chosen.vaalSouls){souls-=chosen.vaalSouls;soulBlockedUntil=time+3;}
   if(chosen.lifeCost)payment.state.life=Math.max(1,payment.state.life-payment.state.maximumLife*chosen.lifeCost);
-  if(chosen.shell)payment.state.energyShield=Math.max(payment.state.energyShield??0,payment.state.maximumLife*.17);
+  if(chosen.shell){
+   const current=payment.state.energyShield??0, floor=payment.state.maximumLife*.17;
+   // Somatic Shell currently tops up the existing shield pool instead of adding another resource.
+   payment.state.energyShield=player.rules?.ghostDance?recover(payment.state,'energyShield',Math.max(0,floor-current)).energyShield:Math.max(current,floor);
+  }
   const runtimeId=linked?.active.id??chosen.id;
   if(!runtimes.has(runtimeId))runtimes.set(runtimeId,{casts:0,intensity:0,lastIntensity:0,hunger:0,disgorgeUntil:0,lastSealAt:-4});
   const runtime=runtimes.get(runtimeId);

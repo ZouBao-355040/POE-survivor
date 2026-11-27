@@ -1,7 +1,7 @@
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.11';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.11';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.11';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.12';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.12';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.12';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.10';
 import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.10';
@@ -10,12 +10,12 @@ import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.11';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.12';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.10';
 import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.10';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.11';
-import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.11';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.11';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.12';
+import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.12';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.12';
 import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.10';
 
 const $=s=>document.querySelector(s);
@@ -71,11 +71,11 @@ function enterTown(){
   if(!canEnterTown(state))return;
   state.progression=grantExperience(state.progression,state.beachXP??0,xpCost);
   state={...state,zone:'town',enemies:[],projectiles:[],fields:[],goldDrops:[],time:0,
-    cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
+    cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,ghostClock:0,ghostShrouds:0,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else if(state.zone==='trial'&&(state.dead||state.encounter?.phase==='cleared')){
   const route=advanceRoute(state);
   state={...route,zone:'town',dead:false,encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
-    flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
+    flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,ghostClock:0,ghostShrouds:0,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else return;
  const claimed=claimBattleLoot(townItems,state.gold,state.pendingLoot);
  townItems=claimed.town;state.gold=claimed.gold;state.pendingLoot=claimed.pending;
@@ -613,7 +613,8 @@ function render(){
  for(const [k,n] of Object.entries(hooks.charges.snapshot(state.time))){for(let i=0;i<n;i++){const a=state.time*1.9+(phase++)*1.9;dot({x:p.x+.91*Math.cos(a),y:p.y+.91*Math.sin(a)},.12,{power:'#a5bdff',frenzy:'#80db8c',endurance:'#e88985'}[k]);}}
  $('#life').value=p.life/p.maximumLife;$('#life-num').textContent=Math.ceil(p.life)+'/'+p.maximumLife;
  $('#mana').value=p.maximumMana?p.mana/p.maximumMana:0;$('#mana-num').textContent=p.maximumMana?Math.floor(p.mana)+'/'+p.maximumMana:'血魔法';
- const shield=$('#es-meter');shield.hidden=!(p.maximumEnergyShield>0);shield.textContent=shield.hidden?'':'護盾 '+Math.ceil(p.energyShield??0)+'/'+p.maximumEnergyShield;
+ const shield=$('#es-meter');shield.hidden=!(p.maximumEnergyShield>0||p.rules?.ghostDance);
+ shield.textContent=shield.hidden?'':'護盾 '+Math.ceil(p.energyShield??0)+'/'+(p.maximumEnergyShield??0)+(p.rules?.ghostDance?' · 鬼影 '+(p.ghostShrouds??0)+'/3':'');
  for(const [key,base] of Object.entries(flaskBases)){
   const f=state.flasks[key],tag=$('#flask-'+key);
   const blocked=key==='life'&&p.rules?.vaalPact;

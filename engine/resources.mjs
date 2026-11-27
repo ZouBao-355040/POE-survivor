@@ -34,7 +34,19 @@ export function paySkillCost(state,cost,lifeRatio=0){
  return {paid:true,state:{...payment.state,life:state.life-life}};
 }
 export const canRecover=(state,key)=>key!=='life'||!state.rules?.vaalPact;
-export function recover(state,key,amount){if(!['life','mana','energyShield'].includes(key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');if(!canRecover(state,key))return state;const max=state[{life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'}[key]];return {...state,[key]:Math.min(max-(key==='life'?(state.reservedLife??0):key==='mana'?(state.reservedMana??0):0),state[key]+amount)};}
+const maximumKeys={life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'};
+export function recoveryLimit(state,key){
+ const reserved=key==='life'?'reservedLife':key==='mana'?'reservedMana':'reservedEnergyShield';
+ const maximum=Math.max(0,(state[maximumKeys[key]]??0)-(state[reserved]??0));
+ return key==='energyShield'&&state.rules?.ghostDance?Math.min(maximum,Math.max(0,state.evasion??0)):maximum;
+}
+export function recover(state,key,amount){
+ if(!Object.hasOwn(maximumKeys,key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');
+ if(!canRecover(state,key))return state;
+ const current=state[key]??0,limit=recoveryLimit(state,key);
+ // A lowered recovery limit stops new recovery, not shield already gained.
+ return current>=limit?state:{...state,[key]:Math.min(limit,current+amount)};
+}
 
 export const mindOverMatterFraction=.4;
 export const eldritchBatteryRechargeMultiplier=.5;

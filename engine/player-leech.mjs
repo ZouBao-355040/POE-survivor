@@ -1,5 +1,6 @@
+import {recoveryLimit} from './resources.mjs?v=0.5.12';
 import {LeechPool} from './recovery.mjs?v=0.5.9';
-const resources=[['life','maximumLife','reservedLife'],['mana','maximumMana','reservedMana'],['energyShield','maximumEnergyShield','reservedEnergyShield']];
+const resources=[['life','maximumLife'],['mana','maximumMana'],['energyShield','maximumEnergyShield']];
 const descriptor=Object.fromEntries(resources.map(entry=>[entry[0],entry]));
 const total=damage=>Object.values(damage).reduce((acc,n)=>acc+Math.max(0,n??0),0);
 
@@ -22,8 +23,8 @@ export function addHitLeech(player,shot,result,modifiers){
   energyShield:(proxy?0:delivered*f('leechEnergyShield'))+(player.rules?.ghostReaver?life:0)};
  const cfg=player.leechConfig??{};
  for(const [resource,amount] of Object.entries(amounts)){
-  const [key,max,reserved]=descriptor[resource],maximum=player[max];
-  const cap=(maximum??0)-(player[reserved]??0),current=player[key]??0;
+  const [key,max]=descriptor[resource],maximum=player[max];
+  const cap=recoveryLimit(player,key),current=player[key]??0;
   if(!(amount>0&&maximum>0&&current<cap))continue;
   const pool=new LeechPool(resource);
   pool.instances=[...(player.activeLeech?.[resource]??[])];
@@ -40,14 +41,14 @@ export function advancePlayerLeech(player,dt){
  if(!player.activeLeech)return;
  if(!(player.life>0)){delete player.activeLeech;return;}
  const cfg=player.leechConfig??{},next={};
- for(const [key,max,reserved] of resources){
+ for(const [key,max] of resources){
   const pending=player.activeLeech[key],maximum=player[max];
   if(!pending?.length||!(maximum>0))continue;
   const pool=new LeechPool(key);
   pool.instances=pending.map(instance=>({...instance}));
   player[key]=pool.advance(dt,player[key]??0,maximum,{
    totalRate:(key==='energyShield'?.1:.2)*(cfg[key]?.cap??1)*(key==='energyShield'&&player.rules?.ghostReaver?2:1),
-   unreservedMaximum:Math.max(0,maximum-(player[reserved]??0))
+   unreservedMaximum:recoveryLimit(player,key)
   });
   if(pool.instances.length)next[key]=pool.instances;
  }

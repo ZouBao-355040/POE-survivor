@@ -39,6 +39,7 @@ export const keystones=Object.freeze({
  '54307':['acrobatics','移形換影',['法術壓抑機率改為一半數值的法術擊中躲避率','最多 75% 法術躲避機率']],
  '22088':['elementalOverload','元素超載',['各技能在造成暴擊後 8 秒內，元素擊中與異常狀態造成 40% 更多傷害','暴擊不再造成額外傷害，異常狀態不視作暴擊施加']],
  '39085':['elementalEquilibrium','元素之相',['元素擊中移除對應元素曝曬，對其他元素施加 −25% 抗性的曝曬']],
+ '35255':['ghostDance','鬼舞',['每 2 秒獲得 1 層鬼影，最多 3 層','被擊中時失去 1 層鬼影，回復等同於閃避值 3% 的能量護盾','能量護盾無法回復至高於你的閃避值']],
  '10808':['vaalPact','瓦爾冥約',['近戰傷害的生命偷取立即生效','無法透過偷取以外的方式回復生命']],
  '24426':['ghostReaver','靈能護體',['生命偷取改為能量護盾偷取','能量護盾偷取的每秒總回復上限加倍','能量護盾無法充能']],
  '19732':['theAgnostic','不可知論',['移除全部能量護盾','非滿血時每秒犧牲至多 20% 最大魔力以恢復等量生命']]
@@ -85,6 +86,8 @@ export function parsePassiveLine(line){
  }
  if((m=line.match(/^(\d+)% of Leech is Instant$/)))
   return [[numeric('leechInstant',+m[1]/100)],m[1]+'% 偷取立即回復'];
+ if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)% of Energy Shield per second$/)))
+  return [[numeric('esRegenPct',+m[1]/100)],'每秒回復 '+m[1]+'% 能量護盾'];
  if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)(?:(%)(?: of)?)? Life per second$/)))
   return [[numeric(m[2]?'lifeRegenPct':'lifeRegen',+m[1]/(m[2]?100:1))],'每秒回復 '+m[1]+(m[2]??'')+' 生命'];
  if((m=line.match(/^\+(\d+)% to (Global )?Critical Strike Multiplier$/)))
