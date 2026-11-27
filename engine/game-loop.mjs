@@ -8,7 +8,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(length){player.x+=direction.x/length*player.speed*dt;player.y+=direction.y/length*player.speed*dt;}
  if(enemyStats&&spawnInterval>0)while(nextSpawn<=time){enemies.push(spawnEnemy('enemy-'+nextId++,player,random()*Math.PI*2,spawnRadius,enemyStats));nextSpawn+=spawnInterval;}
  enemies=enemies.map(e=>e.life>0?moveToward(e,player,e.speed??0,dt,e.attackRange??.5):e);
- for(const p of state.projectiles){const result=advanceProjectile(p,dt,enemies);if(result.hitId){const i=enemies.findIndex(e=>e.id===result.hitId);if(onImpact)enemies[i]=onImpact(enemies[i],p);events.push({type:'impact',target:result.hitId});}if(!result.expired)projectiles.push(result.projectile);}
+ for(const p of state.projectiles){const result=advanceProjectile(p,dt,enemies);if(result.hitId){const i=enemies.findIndex(e=>e.id===result.hitId);if(onImpact)enemies[i]=onImpact(enemies[i],p,time+dt);events.push({type:'impact',target:result.hitId});}if(!result.expired)projectiles.push(result.projectile);}
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
  const target=nearestEnemy(player,enemies,player.attackRange??10);
  if(cooldown===0&&target&&onFire){const shot=onFire(player,target,time);if(shot){player=shot.player??player;projectiles.push(shot.projectile);cooldown=shot.cooldown;events.push({type:'fire',target:target.id});}}
