@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {canEnterTown,gate,hillockId,openingBeach,stepBeach} from './campaign.mjs';
+import {canEnterTown,gate,hillockId,openingBeach,retryBeach,stepBeach} from './campaign.mjs';
 import {newTownServices,rollGear,hillockLoot,equipGear,equippedStats,transferGem,transferGear,transferOrb} from './town-services.mjs';
 import {purchaseGem} from './gem-shop.mjs';
 import {GemInventory} from './gem-inventory.mjs';
@@ -136,4 +136,23 @@ test('a 100-monster map permits a fast clear without waiting for a scheduled wav
  assert.equal(s.encounter.bossReason,'clear');
  const win=stepTrial(withKills({...s,time:s.time+5},1),.02,rng);
  assert.equal(win.encounter.phase,'cleared');assert.ok(win.time<60);
+});
+
+test('beach death retry preserves progress and loot without duplicate enemies or skipping Hillock',()=>{
+ const dead={...start,dead:true,time:15,cooldown:9,beachXP:7,kills:1,gateOpen:false,
+  player:{...player,x:10,y:1,life:0,mana:3},enemies:openingBeach().slice(1),
+  projectiles:[{id:'expired-arrow'}],fields:[{id:'old-field'}],pendingLoot:{gold:1,orbs:[],gems:[],hillock:false}};
+ const next=retryBeach(dead);
+ assert.equal(next.dead,false);assert.equal(next.time,0);
+ assert.deepEqual(next.player,{...player,energyShield:0});
+ assert.equal(next.beachXP,7);assert.equal(next.kills,1);assert.equal(next.pendingLoot,dead.pendingLoot);
+ assert.deepEqual(next.enemies.map(e=>e.id),dead.enemies.map(e=>e.id));
+ assert.equal(next.enemies.filter(e=>e.id===hillockId).length,1);
+ assert.deepEqual(next.projectiles,[]);assert.deepEqual(next.fields,[]);
+ assert.equal(canEnterTown({...next,player:{...next.player,...gate}}),false);
+ assert.equal(retryBeach(next),next);
+ const unlocked=retryBeach({...dead,gateOpen:true,enemies:dead.enemies.filter(e=>!e.boss),pendingLoot:{...dead.pendingLoot,hillock:true}});
+ assert.equal(unlocked.enemies.some(e=>e.id===hillockId),false);
+ assert.ok(unlocked.pendingLoot.hillock);
+ assert.ok(canEnterTown({...unlocked,player:{...unlocked.player,...gate}}));
 });

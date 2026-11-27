@@ -26,7 +26,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.2/);
+ assert.match(await text('.brand'),/v0\.5\.3/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -219,7 +219,38 @@ async function verify(viewport,mobile){
  console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、通貨三選一、穿戴插槽與兩種龍捲射擊通過。');
  await page.close();
 }
+async function verifyBeachRetry(){
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
+ // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
+ await page.addInitScript(()=>{Math.random=()=>.4;});
+ await page.route('**/play.mjs?v=0.5.3',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker="if(ev.target===hillockId&&!state.dead)notify(";
+  assert.ok(source.includes(marker));
+  await route.fulfill({response,body:source.replace(marker,
+   "if(!window.__retryTestDeath&&state.zone==='beach'&&state.pendingLoot.gold>0){window.__retryTestDeath=true;state.dead=true;state.player.life=0;}"+marker)});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ await page.clock.runFor(3500);
+ const retry=page.getByRole('button',{name:'從岩灘重試 · 保留戰利品'});
+ assert.ok(await retry.isVisible());
+ const pending=await page.locator('#field-loot').innerText();
+ assert.match(pending,/待回城：1 金幣/);
+ assert.equal(await page.locator('#town-entry').isVisible(),false);
+ await retry.click();
+ await page.clock.runFor(75);
+ assert.equal(await retry.isVisible(),false);
+ assert.equal(await page.locator('#life-num').innerText(),'70/70');
+ assert.equal(await page.locator('#field-loot').innerText(),pending);
+ assert.match(await page.locator('#status').innerText(),/擊殺 1/);
+ assert.equal(await page.locator('#town-entry').isVisible(),false);
+ await page.close();
+ console.log('岩灘重試：死亡後保留待結算戰利品、恢復生命，城門仍未開啟。');
+}
 try{
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1')await verifyBeachRetry();
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}

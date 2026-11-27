@@ -1,16 +1,16 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.2';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.2';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.2';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.3';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.3';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.3';
 import {ModifierStore} from './engine/modifiers.mjs';
-import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.2';
-import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.2';
-import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.2';
+import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.3';
+import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.3';
+import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.3';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.2';
-import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,claimBattleLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.2';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.3';
+import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,claimBattleLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.3';
 import {claimLevelCurrency,rollCurrencyChoices} from './engine/currency.mjs';
 
 const $=s=>document.querySelector(s);
@@ -96,6 +96,12 @@ function updateEquipment(){
  state.player={...p,maximumLife,life:Math.min(p.life,maximumLife),speed:4*stats.speed};
 }
 $('#town-entry').onclick=enterTown;
+$('#beach-retry').onclick=()=>{
+ const next=retryBeach(state);
+ if(next===state)return;
+ state=next;hooks=rangerHooks({modifiers,inventory});acc=0;clearInput();
+ notify('戰利品已保留。抵達獅眼守望後會自動入帳。');
+};
 $('#return-town').onclick=enterTown;
 $('#leave-town').onclick=leaveTown;
 $('#next-zone').onclick=nextZone;
@@ -472,6 +478,7 @@ function render(){
   $('#chapter-status').textContent=state.chapterComplete?'第一章已完成，第二章尚未開放。':'第一章主線：'+(state.routeIndex??0)+'/'+actOne.length+' 張地圖已完成';
  }
  $('#town-entry').hidden=!canEnterTown(state);
+ $('#beach-retry').hidden=state.zone!=='beach'||!state.dead;
  const boss=state.enemies.find(e=>e.boss&&e.life>0),bar=$('#boss-hud'),meter=$('#boss-meter');
  bar.hidden=!boss||state.dead||trial?.phase==='cleared';
  if(!bar.hidden){

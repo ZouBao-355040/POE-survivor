@@ -1,5 +1,6 @@
+import {starterFlasks} from './flasks.mjs';
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.2';
+import {stepWorld} from './game-loop.mjs?v=0.5.3';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -18,6 +19,15 @@ export function openingBeach(){
   shoreEnemy(hillockId,26,0,88,{boss:true,name:'西拉克',speed:1.38,range:1.15,physical:10,attacksPerSecond:.54,
    radius:.68,experienceReward:16,goldReward:0,flaskChargeReward:11,attackCooldown:.7})
  ];
+}
+// Keep defeated enemies defeated: retry cannot duplicate tutorial rewards or reopen Hillock's fight.
+export function retryBeach(state){
+ if(state.zone!=='beach'||!state.dead)return state;
+ const survivors=new Set(state.enemies.filter(e=>e.life>0).map(e=>e.id));
+ return {...state,dead:false,paused:false,time:0,cooldown:0,
+  enemies:openingBeach().filter(e=>survivors.has(e.id)),projectiles:[],fields:[],enemyCasts:[],events:[],
+  flasks:starterFlasks(),player:{...state.player,x:0,y:0,life:state.player.maximumLife,
+   mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0}};
 }
 export function canEnterTown(state){
  return state.zone==='beach'&&!state.dead&&state.gateOpen===true&&Math.hypot(state.player.x-gate.x,state.player.y-gate.y)<=2.7;
