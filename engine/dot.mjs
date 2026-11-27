@@ -6,6 +6,7 @@ export function mitigateDot(rates,defender={}){
  let v=Math.max(0,rates[t]??0);
  if(t==='physical')v*=1-clamp(defender.additionalPhysicalReduction??0,0,.9);
  else v=resistanceDamage(v,defender.resistances?.[t]??0,defender.maximumResistances?.[t]??.75,0);
+ if(['fire','cold','lightning'].includes(t))v*=1-clamp(defender.additionalElementalReduction??0,0,.9);
  v*=Math.max(0,1+(defender.increasedTaken??0)+(defender.increasedDotTaken??0)+(defender.increasedTakenByType?.[t]??0));
  v*=(defender.takenMultipliers??[]).reduce((a,b)=>a*b,1);
  result[t]=v;
