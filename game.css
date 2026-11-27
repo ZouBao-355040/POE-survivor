@@ -32,3 +32,5 @@ h2,h3,p{margin:.6em 0}h2{color:var(--gold);font-size:1.28em}h3{font-size:1em}.mu
 .currency-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:12px}.currency-choices button{min-height:48px}
 #field-loot{position:fixed;right:12px;bottom:69px;color:var(--gold);font-size:11px;pointer-events:none;text-align:right}#town-loot{color:#f2cf88;font-size:12px}
 #field-loot{bottom:90px}#town-loot:empty{display:none}
+.skill-modes{display:grid;gap:8px}.gem-mode{padding:6px;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px;flex-wrap:wrap}.gem-mode .muted{flex:1;min-width:120px}
+#manual-skill{position:fixed;right:12px;bottom:max(112px,calc(env(safe-area-inset-bottom) + 106px));z-index:2;min-height:50px;border-color:#e4c17c;background:#3d3424;box-shadow:0 4px 15px #0c0c089c;touch-action:manipulation}

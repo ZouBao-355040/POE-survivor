@@ -26,7 +26,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.3/);
+ assert.match(await text('.brand'),/v0\.5\.4/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -200,6 +200,19 @@ async function verify(viewport,mobile){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   assert.notEqual(await canvas.evaluate(n=>n.toDataURL()),prev);
  }
+ await btn('寶石').click();
+ await btn('手動 裂化箭矢',bag).click();
+ assert.match(await bag.innerText(),/裂化箭矢 · 手動限定/);
+ await btn('關閉',bag).click();
+ const manual=page.locator('#manual-skill');
+ assert.match(await manual.innerText(),/裂化箭矢/);
+ await page.clock.runFor(1650);
+ assert.equal(await manual.isEnabled(),true);
+ const beforeManual=Number(await page.locator('#mana').getAttribute('value'));
+ if(mobile)await manual.tap();else await page.keyboard.press('Space');
+ await page.clock.runFor(40);
+ assert.equal(await manual.isDisabled(),true);
+ assert.ok(Number(await page.locator('#mana').getAttribute('value'))<beforeManual);
  for(const [name,button,payload] of [
   ['Tornado Shot',/^龍捲射擊 每支主箭/,false],
   ['Cloudburst',/^龍捲射擊．雲爆 單支載箭/,true]
@@ -216,14 +229,14 @@ async function verify(viewport,mobile){
   assert.equal(draw.landingMarkers>0,payload,'only Cloudburst marks an airborne landing');
  }
  assert.deepEqual(failures,[]);
- console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、通貨三選一、穿戴插槽與兩種龍捲射擊通過。');
+ console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、通貨三選一、穿戴插槽、手動施放與兩種龍捲射擊通過。');
  await page.close();
 }
 async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.3',async route=>{
+ await page.route('**/play.mjs?v=0.5.4',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));

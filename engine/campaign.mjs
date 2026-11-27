@@ -1,6 +1,6 @@
 import {starterFlasks} from './flasks.mjs';
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.3';
+import {stepWorld} from './game-loop.mjs?v=0.5.4';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -24,7 +24,7 @@ export function openingBeach(){
 export function retryBeach(state){
  if(state.zone!=='beach'||!state.dead)return state;
  const survivors=new Set(state.enemies.filter(e=>e.life>0).map(e=>e.id));
- return {...state,dead:false,paused:false,time:0,cooldown:0,
+ return {...state,dead:false,paused:false,time:0,cooldown:0,skillCooldowns:{},
   enemies:openingBeach().filter(e=>survivors.has(e.id)),projectiles:[],fields:[],enemyCasts:[],events:[],
   flasks:starterFlasks(),player:{...state.player,x:0,y:0,life:state.player.maximumLife,
    mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0}};
@@ -61,7 +61,7 @@ export function beginTrial(state,rules=coastRules,mapMods){
  const refillAt=rules.refillAt??Math.floor(maxActive/2);
  if(!Number.isSafeInteger(maxActive)||maxActive<1||!Number.isSafeInteger(refillAt)||refillAt<0||refillAt>=maxActive)
   throw new RangeError('Active ceiling must exceed the non-negative refill line');
- return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,dead:false,
+ return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,skillCooldowns:{},dead:false,
   paused:false,projectiles:[],enemies:[],fields:[],enemyCasts:[],goldDrops:[],events:[],
   player:{...state.player,x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
    duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null,

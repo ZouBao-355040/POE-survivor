@@ -7,7 +7,7 @@ import {mitigateDot,integrateDot} from './dot.mjs';
 import {applyDamage} from './resources.mjs';
 import {resolveAttackImpact} from './combat.mjs';
 import {grantExperience} from './progression.mjs';
-export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired,deferLoot=false}={}){
+export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,castPlan,manualRequest,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired,deferLoot=false}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
  if(state.paused||state.dead||state.progression?.pendingChoices>0)return {...state,events:[]};
  let flasks=state.flasks;
@@ -24,7 +24,9 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  const env={player,enemies,hit,time:time+dt};
  const fields=[],spawned=[];
  env.spawn=p=>spawned.push(p);
- env.findField=filter=>fields.find(filter)??state.fields?.find(filter);
+ env.findField=filter=>fields.find(filter)??state.fields?.find(f=>f.until>time&&filter(f));
+ env.activeFields=filter=>fields.filter(f=>f.until>time&&filter(f));
+ env.removeField=field=>{const i=fields.indexOf(field);if(i>=0)fields.splice(i,1);};
  env.addField=field=>fields.push(field);
  for(const field of state.fields??[]){
   if(field.until<=time)continue;
@@ -33,6 +35,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  }
  projectiles=stepProjectiles(state.projectiles,dt,{enemies,player,impact:hit,steer:(p,dt)=>steer?.(p,dt,enemies,player)??p,pulse:p=>onPulse?.(p,env),terminate:(p,e)=>onTerminate?.(p,e,env)});
  onTick?.(env,dt);
+ const projectilesSpawnedBeforeCast=spawned.length;
  projectiles.push(...spawned);
 
  const enemyCasts=[];
@@ -60,7 +63,45 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  }else enemyCasts.push(...(state.enemyCasts??[]));
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
  const target=nearestEnemy(player,enemies,player.attackRange??10);
- if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time,enemies,env);if(shot){player=shot.player??player;projectiles.push(...(shot.projectiles??[shot.projectile]));cooldown=shot.cooldown;events.push({type:'fire',target:target.id,skill:shot.skill});}}
+ const skillCooldowns=castPlan?Object.fromEntries(Object.entries(state.skillCooldowns??{})
+  .filter(([,left])=>left>dt).map(([id,left])=>[id,left-dt])):null;
+ const cast=(aim,options)=>{
+  env.player=player;
+  const shot=onFire(player,aim,time,enemies,env,options);
+  if(!shot)return null;
+  if(shot.deferred)return shot;
+  player=shot.player??player;env.player=player;
+  projectiles.push(...(shot.projectiles??[shot.projectile]));
+  events.push({type:'fire',target:aim.id??null,skill:shot.skill,...(options?.manual?{manual:true}:{})});
+  return shot;
+ };
+ if(player.life>0&&onFire){
+  if(castPlan){
+   if(manualRequest&&castPlan.manual&&!skillCooldowns[castPlan.manual.active.id]){
+    const aim=target??{x:player.x+(manualRequest.x??1)*4,y:player.y+(manualRequest.y??0)*4};
+    const shot=cast(aim,{linked:castPlan.manual,manual:true});
+    if(shot)skillCooldowns[castPlan.manual.active.id]=shot.cooldown;
+   }
+   let attempted=0,fired=0;
+   if(target)for(const linked of castPlan.auto){
+    if(skillCooldowns[linked.active.id])continue;
+    attempted++;
+    const aim=nearestEnemy(player,enemies,player.attackRange??10);
+    if(!aim)break;
+    const shot=cast(aim,{linked,manual:false});
+    if(shot){skillCooldowns[linked.active.id]=shot.cooldown;fired++;}
+   }
+   // Keep the original fallback for unequipped starters and unaffordable auto loadouts, never for a manual-only loadout.
+   if(target&&cooldown===0&&!castPlan.manual&&(!castPlan.auto.length||(attempted===castPlan.auto.length&&!fired))){
+    const shot=cast(target,{linked:null,manual:false});
+    if(shot)cooldown=shot.cooldown;
+   }
+  }else if(cooldown===0&&target){
+   const shot=cast(target);
+   if(shot)cooldown=shot.cooldown;
+  }
+ }
+ projectiles.push(...spawned.slice(projectilesSpawnedBeforeCast));
  let progression=state.progression,flaskCharges=0;
  const dropped=[];
  const economy=Number.isSafeInteger(state.gold)&&!state.practice&&!deferLoot;
@@ -72,5 +113,5 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
   wallet={gold:state.gold+collected.amount,goldDrops:collected.remaining};
   if(collected.amount>0)events.push({type:'gold',amount:collected.amount});
  }
- return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,...(enemyCasts.length||state.enemyCasts?{enemyCasts}:{}),time:time+dt,nextSpawn,nextId,cooldown,events};
+ return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,...(enemyCasts.length||state.enemyCasts?{enemyCasts}:{}),time:time+dt,nextSpawn,nextId,cooldown,...(skillCooldowns?{skillCooldowns}:{}),events};
 }

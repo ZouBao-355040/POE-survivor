@@ -1,6 +1,6 @@
 import {randomCurrency,creditCurrency,currencyDrop} from './currency.mjs';
 import {bowLayout} from './sockets.mjs?v=0.5.2';
-import {createGemInstance} from './gem-inventory.mjs?v=0.5.2';
+import {createGemInstance} from './gem-inventory.mjs?v=0.5.4';
 
 export const gearSlots=Object.freeze({weapon:'武器',body:'胸甲',helmet:'頭盔',gloves:'手套',boots:'鞋子'});
 export const wagerPrice=6;

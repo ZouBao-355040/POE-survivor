@@ -29,9 +29,10 @@ const colorForSkill=g=>g.tags.includes('fire')?colorFor.fire:g.tags.includes('co
 
 export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(crudeBow),active=burningArrow,supports=[momentumSupport],momentum=new Momentum(),inventory}){
  const charges=new Charges();
- let intensity=0,lastIntensity=0,casts=0,souls=60,soulBlockedUntil=0,walked=0,hunger=0,disgorgeUntil=0,lastSealAt=-4,phantasmAt=-Infinity;
+ const runtimes=new Map();
+ let souls=60,soulBlockedUntil=0,walked=0,phantasmAt=-Infinity;
  const addSouls=(count,time)=>{if(time>=soulBlockedUntil)souls=Math.min(60,souls+count);};
- const resetIntensity=distance=>{intensity=0;walked=Math.min(10,walked+distance);};
+ const resetIntensity=distance=>{for(const runtime of runtimes.values())runtime.intensity=0;walked=Math.min(10,walked+distance);};
  const rolls=()=>({critical:random(),confirmation:random(),block:random(),ignite:random()});
  const targetWithin=(env,at,range)=>env.enemies.filter(e=>e.life>0&&distance(at,e)<=range+(e.radius??.35));
  const skillDamage=(s,m)=>({...s,damageMultiplier:s.damageMultiplier*m});
@@ -68,8 +69,8 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const support=ps.override===undefined?(base+ps.flat)*ps.multipliers.reduce((a,b)=>a*b,1)*skill.increasedProjectileSpeed:0;
   return Math.max(.001,(modifiers.calculate(base,'projectileSpeed',skill.context)+support)*(skill.projectileSpeedMultiplier??1));
  }
- return {momentum,charges,addSouls,onMove:resetIntensity,onFire(player,target,time,enemies=[target],env){
-  const linked=inventory?.current();
+ return {momentum,charges,addSouls,onMove:resetIntensity,onFire(player,target,time,enemies=[target],env,cast){
+  const linked=cast?cast.linked:inventory?.current();
   let chosen=inventory?(linked?.active??basicBowAttack):active;
   const ctx={maximumLife:player.maximumLife,maximumMana:player.maximumMana,maximumEnergyShield:player.maximumEnergyShield};
   let skillSupports=inventory?(linked?.supports??[]):supports;
@@ -81,24 +82,34 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
     projectileCount:boost?5:2,spiral:boost};
   }
   if(chosen.vaalSouls&&souls<chosen.vaalSouls){
+   if(cast?.manual)return null;
    chosen=chosen.fallbackActive??basicBowAttack;
   }
   const equipped=inventory?weaponStats(trainingWeapons[trainingWeaponFor(chosen)]):weapon;
   let skill=compileAttack(chosen,equipped,skillSupports,modifiers,random,ctx);
+  const ballista=cast&&skill.deploy==='totem'&&chosen.tags.includes('bow');
+  const group=ballista?'ballista':cast&&skill.deploy==='totem'?'totem':null;
+  const deployed=group?env?.activeFields?.(f=>f.totemGroup===group)??[]:[];
+  const full=deployed.length>=(ballista?2:1);
+  if(full&&!cast?.manual)return {player,cooldown:.15,projectiles:[],skill:chosen.id,deferred:true};
   let payment=payManaCost(player,skill.cost,{eldritchBattery:!!player.rules?.eldritchBattery});
+  if(!payment.paid&&cast)return null;
   if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(chosen,weapon,[],modifiers,random,ctx);payment=payManaCost(player,0);}
   if(!payment.paid||distance(player,target)<1e-9)return null;
   if(chosen.vaalSouls){souls-=chosen.vaalSouls;soulBlockedUntil=time+3;}
   if(chosen.lifeCost)payment.state.life=Math.max(1,payment.state.life-payment.state.maximumLife*chosen.lifeCost);
   if(chosen.shell)payment.state.energyShield=Math.max(payment.state.energyShield??0,payment.state.maximumLife*.17);
-  const castIndex=++casts, empowered=chosen.extraFifth&&castIndex%5===0;
-  if(skill.pinpoint){if(time-lastIntensity>1.45)intensity=0;lastIntensity=time;}
-  if(skill.gluttony&&++hunger>=10){hunger=0;disgorgeUntil=time+4;}
-  if(skill.gluttony&&disgorgeUntil>time){
+  const runtimeId=linked?.active.id??chosen.id;
+  if(!runtimes.has(runtimeId))runtimes.set(runtimeId,{casts:0,intensity:0,lastIntensity:0,hunger:0,disgorgeUntil:0,lastSealAt:-4});
+  const runtime=runtimes.get(runtimeId);
+  const castIndex=++runtime.casts, empowered=chosen.extraFifth&&castIndex%5===0;
+  if(skill.pinpoint){if(time-runtime.lastIntensity>1.45)runtime.intensity=0;runtime.lastIntensity=time;}
+  if(skill.gluttony&&++runtime.hunger>=10){runtime.hunger=0;runtime.disgorgeUntil=time+4;}
+  if(skill.gluttony&&runtime.disgorgeUntil>time){
    chosen={...chosen,radialLaunch:true};
    skill={...skill,active:chosen,additionalProjectiles:skill.additionalProjectiles+5};
   }
-  const rawCount=(chosen.projectileCount??1)+(chosen.splitCountInstead||chosen.countLocked?0:skill.additionalProjectiles)-(skill.pinpoint?intensity:0)+(empowered?4:0);
+  const rawCount=(chosen.projectileCount??1)+(chosen.splitCountInstead||chosen.countLocked?0:skill.additionalProjectiles)-(skill.pinpoint?runtime.intensity:0)+(empowered?4:0);
   const count=Math.max(1,Math.min(48,Math.floor(modifiers.calculate(rawCount,'projectileCount',skill.context))));
   const speed=projectileSpeed(chosen,skill),duration=chosen.projectileLifetime??1;
   const maxFlight=chosen.fixedProjectileRange??speed*duration;
@@ -110,7 +121,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   skill={...skill,damageMultiplier:skill.damageMultiplier*charge.moreDamage*(chosen.charges==='frenzy'?1+.05*c.frenzy:1),
    criticalChance:Math.min(1,skill.criticalChance*(1+charge.increasedCriticalChance)*(chosen.charges==='power'?1+.10*c.power:1)),
    criticalMultiplier:skill.criticalMultiplier+(chosen.charges==='power'?.20*c.power:0)};
-  if(skill.pinpoint){skill=skillDamage(skill,.81*(1+.20*intensity));intensity=Math.min(3,intensity+1);}
+  if(skill.pinpoint){skill=skillDamage(skill,.81*(1+.20*runtime.intensity));runtime.intensity=Math.min(3,runtime.intensity+1);}
   if(skill.ironGrip)skill={...skill,physicalChaosMultiplier:skill.physicalChaosMultiplier*(1+(player.strength??20)*.002)};
   if(chosen.heavy||empowered)skill=skillDamage(skill,chosen.heavy??1.7);
   if(chosen.wild){
@@ -121,8 +132,8 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   }
   if(!(rate>0))return null;
   const cooldown=(1+count*skill.sequenceTimePerShot)*(1+skill.echo)/(rate*skill.echoRate)+(chosen.windup??0);
-  const seals=skill.unleash?Math.min(skill.unleash,Math.max(0,Math.floor((time-lastSealAt)/skill.unleashPeriod))):0;
-  if(seals>0)lastSealAt=seals===skill.unleash?time:lastSealAt+seals*skill.unleashPeriod;
+  const seals=skill.unleash?Math.min(skill.unleash,Math.max(0,Math.floor((time-runtime.lastSealAt)/skill.unleashPeriod))):0;
+  if(seals>0)runtime.lastSealAt=seals===skill.unleash?time:runtime.lastSealAt+seals*skill.unleashPeriod;
   const a=bearing(player,target);
   const template={x:player.x,y:player.y,dx:Math.cos(a),dy:Math.sin(a),speed,remainingRange:range,
    pierce:skill.pierce,fork:skill.fork,chain:skill.chain,split:skill.split,canReturn:skill.canReturn,
@@ -171,8 +182,9 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    const dir=bearing(player,target),bolt=['mine','trap'].includes(skill.deploy);
    const pos=bolt||skill.deploy==='geyser'?{x:target.x-Math.cos(dir)*1.4,y:target.y-Math.sin(dir)*1.4}:
     {x:player.x+Math.cos(dir)*1.1,y:player.y+Math.sin(dir)*1.1};
-   const fr=bolt?.15:skill.focused?.34:.57;
-   env.addField({...pos,radius:bolt?.36:.48,color:template.color,deploy:skill.deploy,next:time+(bolt?.24:.05),pulseEvery:fr,until:time+(bolt?1.8:chosen.vaalSouls?5.8:2.9),mk,aim:target,retaliate:skill.retaliate,template});
+   const fr=ballista?Math.max(.22,1/rate):bolt?.15:skill.focused?.34:.57;
+   if(full)env.removeField(deployed[0]);
+   env.addField({...pos,radius:bolt?.36:.48,color:template.color,deploy:skill.deploy,totemGroup:group,next:time+(bolt?.24:.05),pulseEvery:fr,until:time+(ballista?7:bolt?1.8:chosen.vaalSouls?5.8:2.9),mk,aim:target,retaliate:skill.retaliate,template});
   }else{
    let source=player;
    if(chosen.melee&&env&&distance(player,target)<=2.2){
@@ -191,7 +203,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
     if(Math.abs(turn)<=.5)env.hit(e,{...template,secondary:true});
    }
   }
-  return {player:payment.state,cooldown,projectile:projectiles[0],projectiles,skill:chosen.id};
+  return {player:payment.state,cooldown:ballista?.48:cooldown,projectile:projectiles[0],projectiles,skill:chosen.id};
  },steer(p,dt,enemies,player){
   const a=p.skill.active;
   if(!p.fragment&&(a.wander||a.zigzag||a.helix||a.orbit)){
