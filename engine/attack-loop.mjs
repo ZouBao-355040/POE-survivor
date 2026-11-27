@@ -2,7 +2,7 @@ import {attack} from './combat.mjs';
 import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot} from './dot.mjs';
 import {applyDamage} from './resources.mjs';
-export function advanceCombat(state,dt,{skill,basicAttack,modifiers,manaRegen=0,rolls,context={}}){
+export function advanceCombat(state,dt,{skill,basicAttack,modifiers,manaRegen=0,rolls,context={},momentum}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid elapsed time');
  let {attacker,target}=state;
  let cooldown=state.cooldown??0,remaining=dt;
@@ -19,7 +19,8 @@ export function advanceCombat(state,dt,{skill,basicAttack,modifiers,manaRegen=0,
  if(!(selected.attacksPerSecond>0&&Number.isFinite(selected.attacksPerSecond)))throw new Error('Invalid attack rate');
  attacker=result.attacker;target=result.target;
  if(result.ignite)ignites.push({rate:result.ignite.rate,start:time,end:time+result.ignite.duration});
- cooldown=1/selected.attacksPerSecond;
+ const momentumIncrease=momentum&&selected.linkedSupports?.includes('momentum')?momentum.use(time):0;
+ cooldown=1/(selected.attacksPerSecond*(1+momentumIncrease));
  events.push({skill:selected.id,hit:result.hit,dead:result.dead??false});
  }
  return {...state,attacker,target,cooldown,events,time,ignites};
