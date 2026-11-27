@@ -26,7 +26,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.4/);
+ assert.match(await text('.brand'),/v0\.5\.5/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -86,11 +86,47 @@ async function verify(viewport,mobile){
  assert.match(await reward.innerText(),/通貨三選一/);
  const choices=await reward.getByRole('button').allTextContents();
  assert.equal(new Set(choices).size,3);
- const rewardOrb=choices[0].replace(/ ×1$/,'');
- await btn(choices[0],reward).click();
+ const rewardOrb='改造石';
+ assert.ok(choices.includes(rewardOrb+' ×1'));
+ await btn(rewardOrb+' ×1',reward).click();
  assert.equal(await reward.isVisible(),false);
  const inTown=await snapshot();await page.clock.runFor(1800);assert.deepEqual(await snapshot(),inTown);
  const services=page.locator('#town-dialog');
+ await btn('裝備').click();
+ assert.equal(await services.locator('.equipment-grid .gear-icon').count(),2);
+ const bow=services.locator('.equipment-grid .gear-icon use').first();
+ assert.match(await bow.getAttribute('href'),/#weapon$/);
+ await page.waitForFunction(()=>document.querySelector(".equipment-grid svg use")?.getBBox().width>0);
+ await btn('關閉',services).click();
+ await btn(/^裝備打造/).click();
+ await services.getByRole('combobox',{name:'選擇裝備'}).selectOption('starter-body');
+ assert.ok(await btn('一般通貨',services).isVisible());
+ await btn(/^改造石.*倉庫/s,services).click();
+ assert.ok(await btn('打造 · 改造石 ×1',services).isDisabled());
+ assert.match(await services.locator('.craft-footer').innerText(),/只能用在魔法裝備/);
+ await services.getByRole('combobox',{name:'選擇裝備'}).selectOption('gear-1');
+ const apply=btn('打造 · 改造石 ×1',services);
+ assert.equal(await apply.isEnabled(),true);
+ const icon=services.locator('.craft-item .gear-icon use');
+ assert.match(await icon.getAttribute('href'),/#body$/);
+ const beforeIcon=await icon.getAttribute('href');
+ const target=services.getByRole('combobox',{name:'選擇裝備'});
+ assert.equal(await target.inputValue(),'gear-1');
+ assert.match(await services.locator('.craft-item').innerText(),/魔法/);
+ await apply.click();
+ assert.match(await services.locator('.craft-item').innerText(),/魔法/);
+ assert.ok(await services.locator('.craft-item .craft-affix').count()>=1);
+ assert.equal(await target.inputValue(),'gear-1');
+ assert.equal(await icon.getAttribute('href'),beforeIcon);
+ assert.match(await btn(/^改造石.*倉庫/s,services).innerText(),/倉庫 1/);
+ assert.ok(await apply.isEnabled());
+ await apply.click();
+ assert.equal(await target.inputValue(),'gear-1');
+ assert.match(await btn(/^改造石.*倉庫/s,services).innerText(),/倉庫 0/);
+ assert.ok(await apply.isDisabled());
+ const bounds=await services.locator('.craft-footer').boundingBox(),dialogBounds=await services.boundingBox();
+ assert.ok(bounds.y+bounds.height<=dialogBounds.y+dialogBounds.height+.5,'craft action stays in view');
+ await btn('關閉',services).click();
  await btn(/^裝備賭商/).click();
  assert.ok(await services.getByRole('heading',{name:'裝備背包'}).isVisible());
  await btn('賭鞋子 · 6 金幣',services).click();
@@ -118,13 +154,20 @@ async function verify(viewport,mobile){
  const deposit=btn(/^存入 .*靴/,services);assert.ok(await deposit.isVisible());
  await deposit.click();
  await btn(/^取出 .*靴/,services).click();
- assert.equal(await btn('取出 '+rewardOrb,services).isVisible(),true);
+ assert.equal(await services.locator('.currency-vault .currency-cell').count(),5);
+ assert.match(await services.locator('.currency-cell').filter({hasText:rewardOrb}).innerText(),/×0/);
+ assert.equal(await btn('取出 '+rewardOrb,services).count(),0);
  assert.equal(await btn('存入 '+rewardOrb,services).count(),0);
- await btn('取出 '+rewardOrb,services).click();
- await btn('存入 '+rewardOrb,services).click();
  await btn(/^存入 動量/,services).click();
- await btn(/^取出 動量/,services).click();
  await btn('關閉',services).click();
+ await btn('寶石').click();
+ const stored=btn(/^倉庫：動量輔助/,bag);
+ assert.ok(await stored.isVisible());
+ await stored.click();
+ await btn('○',bag).first().click();
+ assert.equal(await stored.count(),0);
+ assert.equal(await btn(/^動量輔助 1$/,bag).count(),1);
+ await btn('關閉',bag).click();
  await btn(/^寶石商/).click();
  const search=services.getByRole('searchbox',{name:'搜尋商店寶石'});
  await search.fill('龍捲射擊');
@@ -229,14 +272,14 @@ async function verify(viewport,mobile){
   assert.equal(draw.landingMarkers>0,payload,'only Cloudburst marks an airborne landing');
  }
  assert.deepEqual(failures,[]);
- console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、通貨三選一、穿戴插槽、手動施放與兩種龍捲射擊通過。');
+ console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、固定通貨倉與打造、穿戴插槽、手動施放與兩種龍捲射擊通過。');
  await page.close();
 }
 async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.4',async route=>{
+ await page.route('**/play.mjs?v=0.5.5',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));

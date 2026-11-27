@@ -33,7 +33,7 @@ test('kill loot does not enter the wallet on the field; multiple areas preserve 
  assert.equal(claim.town.gear.length,1);
  assert.equal(claim.gold,4+3+5+9);
  assert.equal(claim.claimedOrbs,3);
- assert.deepEqual(claim.town.orbs,{});
+ assert.equal(Object.hasOwn(claim.town,'orbs'),false);
  assert.equal(claim.town.storedOrbs['富豪石'],1);
  assert.equal(claim.town.storedGems.get(gem.id).experience,0);
  assert.equal(claim.claimedGems,1);

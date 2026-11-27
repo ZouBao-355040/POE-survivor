@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {canEnterTown,gate,hillockId,openingBeach,retryBeach,stepBeach} from './campaign.mjs';
-import {newTownServices,rollGear,hillockLoot,equipGear,equippedStats,transferGem,transferGear,transferOrb} from './town-services.mjs';
+import {newTownServices,rollGear,hillockLoot,equipGear,equippedStats,transferGem,transferGear} from './town-services.mjs';
 import {purchaseGem} from './gem-shop.mjs';
 import {GemInventory} from './gem-inventory.mjs';
 const player={x:0,y:0,speed:4,life:70,maximumLife:70,mana:58,maximumMana:58};
@@ -26,10 +26,7 @@ test('boss can drop only a few coins or grant gear and an orb in addition to gol
  assert.ok(rich.gold>5);assert.equal(rich.item.rarity,'稀有');
  assert.equal(rich.town.storedOrbs[rich.orb],1);
  assert.equal(rich.town.gear.length,1);
- const carried=transferOrb(rich.town,rich.orb,false);
- const stored=transferOrb(carried,rich.orb,true);
- assert.deepEqual(stored.orbs,{});assert.equal(stored.storedOrbs[rich.orb],1);
- assert.equal(transferOrb(stored,rich.orb,false).orbs[rich.orb],1);
+ assert.equal(Object.hasOwn(rich.town,'orbs'),false);
 });
 test('town gear rolls charge the player, equip affects the right stat, and storage preserves items',()=>{
  const town=newTownServices();
@@ -37,7 +34,7 @@ test('town gear rolls charge the player, equip affects the right stat, and stora
  const {gold,item,town:fresh}=rollGear(town,12,'boots',()=>.7);
  assert.equal(gold,6);assert.equal(item.slot,'boots');assert.equal(item.rarity,'稀有');
  const active=equipGear(fresh,item.id);
- assert.equal(equippedStats(active).speed,1+item.value/100);
+ assert.ok(equippedStats(active).speed>=1+item.value/100);
  assert.throws(()=>transferGear(active,item.id,true),/請先卸下/);
  const banked=transferGear(equipGear(active,item.id),item.id,true);
  assert.equal(banked.gear.length,0);

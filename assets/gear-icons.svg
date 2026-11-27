@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+ <symbol id="weapon" viewBox="0 0 48 48">
+  <path d="M11 6c27 1 34 23 30 34M11 6l30 34" fill="none" stroke="#ead09a" stroke-width="2"/>
+  <path d="M11 6c25 5 34 15 30 34" fill="none" stroke="#b77a45" stroke-width="5" stroke-linecap="round"/>
+  <path d="M7 35L36 9m-8 0h8v8M7 35l1-7m-1 7h7" fill="none" stroke="#c4d6d8" stroke-width="2" stroke-linejoin="round"/>
+ </symbol>
+ <symbol id="body" viewBox="0 0 48 48">
+  <path d="M17 8l7 7 7-7 11 6-5 13-5-3v16H16V24l-5 3-5-13z" fill="#58717d" stroke="#a0b6bf" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M16 19l8 6 8-6M16 32l8 4 8-4M24 16v22" fill="none" stroke="#d4b582" stroke-width="2"/>
+ </symbol>
+ <symbol id="helmet" viewBox="0 0 48 48">
+  <path d="M9 28c0-13 5-20 15-22 10 2 15 9 15 22v9l-10 5-5-7-5 7-10-5z" fill="#65747e" stroke="#b6c4ca" stroke-width="2"/>
+  <path d="M14 25h7m6 0h7M24 8v27M12 32l7 1m10 0l7-1" stroke="#dfbe80" stroke-width="2"/>
+ </symbol>
+ <symbol id="gloves" viewBox="0 0 48 48">
+  <path d="M15 40l-4-11-4-6c-1-3 2-5 4-4l5 6-1-16c0-3 4-3 5-1l2 12V6c0-3 4-3 5 0l1 14 2-12c1-3 5-1 5 1l-1 14 3-8c2-2 5 0 4 3l-5 15-4 7z" fill="#826345" stroke="#d3a97d" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M14 32h21m-19 5h17" stroke="#c3cacc" stroke-width="2"/>
+ </symbol>
+ <symbol id="boots" viewBox="0 0 48 48">
+  <path d="M13 8h19l-2 14c-1 5 2 7 7 8l6 4v6H7v-7l5-9z" fill="#825a45" stroke="#d4a77a" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M9 35h33M14 13h16m-15 5h13m-13 5h12" stroke="#d6bf91" stroke-width="2" stroke-linecap="round"/>
+ </symbol>
+</svg>

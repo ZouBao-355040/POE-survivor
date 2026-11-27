@@ -1,4 +1,5 @@
-import {randomCurrency,creditCurrency,currencyDrop} from './currency.mjs';
+import {randomCurrency,creditCurrency,currencyDrop} from './currency.mjs?v=0.5.5';
+import {rollGearAffixes} from './gear-crafting.mjs?v=0.5.5';
 import {bowLayout} from './sockets.mjs?v=0.5.2';
 import {createGemInstance} from './gem-inventory.mjs?v=0.5.4';
 
@@ -11,7 +12,7 @@ export function newTownServices({starter=false}={}){
   {id:'starter-weapon',slot:'weapon',name:'粗製短弓',rarity:'普通',value:0,starter:true},
   {id:'starter-body',slot:'body',name:'漂流者外衣',rarity:'普通',value:0,starter:true}
  ]:[];
- return {nextItem:1,gear,equipped:Object.fromEntries(gear.map(g=>[g.slot,g.id])),storedGear:[],storedGems:new Map(),orbs:{},storedOrbs:{}};
+ return {nextItem:1,gear,equipped:Object.fromEntries(gear.map(g=>[g.slot,g.id])),storedGear:[],storedGems:new Map(),storedOrbs:{}};
 }
 export const equippedSocketLayout=town=>Object.fromEntries(Object.entries(bowLayout)
  .filter(([slot])=>town.gear.some(g=>g.id===town.equipped[slot]&&g.slot===slot)));
@@ -21,7 +22,7 @@ function makeGear(town,slot,random,minRank=0){
  const rarity=['普通','魔法','稀有'][rank];
  const name=gearNames[slot][Math.floor(sample(random)*3)];
  const value=slot==='weapon'?8+rank*5+Math.floor(sample(random)*4):slot==='body'?8+rank*5+Math.floor(sample(random)*5):5+rank*4+Math.floor(sample(random)*3);
- const item={id:'gear-'+town.nextItem,slot,name,rarity,value};
+ const item=rollGearAffixes({id:'gear-'+town.nextItem,slot,name,rarity,value},random);
  return {item,town:{...town,nextItem:town.nextItem+1,gear:[...town.gear,item]}};
 }
 export function rollGear(town,gold,slot,random=Math.random){
@@ -55,13 +56,6 @@ export function claimBattleLoot(town,gold,loot,random=Math.random){
   claimedGold:loot.gold+(hillock?.gold??0),claimedOrbs:loot.orbs.length+Number(!!hillock?.orb),claimedGems,hillock,pending:emptyBattleLoot()};
 }
 
-export function transferOrb(town,orb,toStash){
- const from=toStash?'orbs':'storedOrbs',to=toStash?'storedOrbs':'orbs';
- if(!(town[from][orb]>0))throw new Error('沒有這顆通貨');
- const left={...town[from],[orb]:town[from][orb]-1};
- if(!left[orb])delete left[orb];
- return {...town,[from]:left,[to]:{...town[to],[orb]:(town[to][orb]??0)+1}};
-}
 export function equipGear(town,id){
  const item=town.gear.find(g=>g.id===id);
  if(!item)throw new Error('裝備不在背包');
@@ -89,9 +83,21 @@ export function transferGem(town,inventory,id,toStash){
   town.storedGems.delete(id);inventory.owned.set(id,gem);
  }
 }
+export function socketStoredGem(town,inventory,id,group,index){
+ inventory.board.check(group,index);
+ if(inventory.board.groups[group][index])throw new Error('請先選擇空插槽');
+ transferGem(town,inventory,id,false);
+ inventory.equip(id,group,index);
+}
 export function equippedStats(town){
- const value=slot=>town.gear.find(g=>g.id===town.equipped[slot])?.value??0;
- return {attack:(value('weapon')+value('gloves'))/100,life:value('body')+value('helmet'),speed:1+value('boots')/100};
+ const equipped=Object.entries(town.equipped).map(([slot,id])=>town.gear.find(g=>g.id===id&&g.slot===slot)).filter(Boolean);
+ const value=slot=>equipped.find(g=>g.slot===slot)?.value??0;
+ const mods={};
+ for(const item of equipped)for(const affix of item.affixes??[])mods[affix.key]=(mods[affix.key]??0)+affix.value;
+ return {attack:(value('weapon')+value('gloves')+(mods.attack??0))/100,
+  life:value('body')+value('helmet')+(mods.life??0),speed:1+(value('boots')+(mods.move??0))/100,
+  mana:mods.mana??0,accuracy:mods.accuracy??0,evasion:mods.evasion??0,
+  resistances:Object.fromEntries(['fire','cold','lightning'].map(key=>[key,(mods[key]??0)/100]))};
 }
 export function itemAffix(item){
  if(item.starter)return '初始裝備';

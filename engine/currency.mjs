@@ -15,11 +15,23 @@ export function rollCurrencyChoices(random=Math.random){
  return choices;
 }
 
+export function currencyBalance(wallet,name){return Object.hasOwn(wallet??{},name)?wallet[name]:0;}
+export function debitCurrency(wallet,name){
+ if(!currencies.includes(name))throw new Error('未知通貨');
+ const count=currencyBalance(wallet,name);
+ if(count<=0)throw new Error('倉庫存量不足');
+ const next={...wallet};
+ const left=typeof count==='bigint'?count-1n:count-1;
+ if(left===0||left===0n)delete next[name];else next[name]=left;
+ return next;
+}
+
 export function creditCurrency(wallet,drops){
  const result={...wallet};
  for(const name of drops){
   if(!currencies.includes(name))throw new Error('未知通貨');
-  result[name]=(result[name]??0)+1;
+  const count=currencyBalance(result,name);
+  result[name]=typeof count==='bigint'||count>=Number.MAX_SAFE_INTEGER?BigInt(count)+1n:count+1;
  }
  return result;
 }
