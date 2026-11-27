@@ -23,7 +23,7 @@ export function advanceProjectile(p,dt,enemies){
  const pierces=!!hit&&(p.pierce??0)>0;
  return {projectile:{...p,x:p.x+dx*fraction,y:p.y+dy*fraction,remainingRange,
   distanceTravelled:(p.distanceTravelled??0)+moved,age:(p.age??0)+(p.speed>0?moved/p.speed:dt),
-  pierce:pierces?p.pierce-1:(p.pierce??0),hitIds:hit?[...(p.hitIds??[]),hit.id]:(p.hitIds??[])},
+  piercedBefore:p.piercedCount??0,piercedCount:(p.piercedCount??0)+(pierces?1:0),pierce:pierces?p.pierce-1:(p.pierce??0),hitIds:hit?[...(p.hitIds??[]),hit.id]:(p.hitIds??[])},
   hitId:hit?.id??null,used:p.speed>0?moved/p.speed:dt,
   expired:(!!hit&&!pierces)||remainingRange<=EPS};
 }
@@ -41,7 +41,7 @@ export function redirectProjectile(p,enemies,player,{hitId=null}={}){
  if(hitId!==null&&!p.returning&&p.remainingRange>EPS){
   if(p.split>0&&candidates.length)return candidates.slice(0,p.split).map(e=>aim(p,e,{split:0})).filter(Boolean);
   if(p.fork>0)return ((p.forkRoll??1)<(p.extraForkChance??0)?[-.52,0,.52]:[-.52,.52]).map(a=>turn(p,a,{fork:p.fork-1}));
-  if(p.chain>0){const next=candidates.map(e=>aim(p,e,{chain:p.chain-1})).find(Boolean);if(next)return [next];}
+  if(p.chain>0){const next=candidates.map(e=>aim(p,e,{chain:p.chain-1,chainedCount:(p.chainedCount??0)+1})).find(Boolean);if(next)return [next];}
  }
  if(p.canReturn&&!p.returning){
   const next=aim(p,player,{returning:true,hitIds:[],ignoreId:hitId,volley:p.returnVolley,pierce:Infinity,

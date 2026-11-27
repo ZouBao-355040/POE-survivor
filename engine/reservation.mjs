@@ -5,7 +5,7 @@ export function reservationCost(maximum,{fraction=0,flat=0,efficiency=0,multipli
 }
 export function reserve(state,entries){
  const reserved={life:0,mana:0};
- for(const e of entries){if(!['life','mana'].includes(e.resource))throw new Error('Invalid resource');const max=state[e.resource==='life'?'maximumLife':'maximumMana'];reserved[e.resource]+=reservationCost(max,e);}
+ for(const e of entries){if(!['life','mana'].includes(e.resource))throw new Error('Invalid resource');const resource=e.resource==='mana'&&state.rules?.bloodMagic?'life':e.resource;const max=state[resource==='life'?'maximumLife':'maximumMana'];reserved[resource]+=reservationCost(max,e);}
  if(reserved.life>=state.maximumLife||reserved.mana>state.maximumMana)return {accepted:false,state};
  return {accepted:true,state:{...state,reservedLife:reserved.life,reservedMana:reserved.mana,life:Math.min(state.life,state.maximumLife-reserved.life),mana:Math.min(state.mana,state.maximumMana-reserved.mana)}};
 }

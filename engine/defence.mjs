@@ -11,11 +11,11 @@ export function shiftTaken(damage,rules=[]){
  }return out;
 }
 // Preliminary ordinary hits only; special keystones and damage prevention deferred.
-export function mitigateHit({damage,source,defender={},penetration={},blockRoll=1,suppressRoll=1}){
+export function mitigateHit({damage,source,defender={},penetration={},blockRoll=1,suppressRoll=1,suppressRetry=1}){
  if(!['attack','spell'].includes(source))throw new Error('Invalid source');
  const shifted=shiftTaken(damage,defender.takenAs);
  const blocked=blockRoll<clamp(source==='attack'?(defender.attackBlock??0):(defender.spellBlock??0),0,defender.maximumBlock??.75);
- const suppressed=source==='spell'&&suppressRoll<clamp(defender.suppressionChance??0,0,1);
+ const suppressed=source==='spell'&&(defender.suppressionLucky?Math.min(suppressRoll,suppressRetry):suppressRoll)<clamp(defender.suppressionChance??0,0,1);
  const result=emptyDamage();
  for(const t of damageTypes){
  let v=shifted[t];

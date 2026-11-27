@@ -1,9 +1,9 @@
-import {compileAttack} from './skill.mjs?v=0.5.1';
+import {compileAttack} from './skill.mjs?v=0.5.7';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
-import {payManaCost,applyDamage} from './resources.mjs';
-import {resolveAttackImpact} from './combat.mjs';
+import {paySkillCost,applyDamage} from './resources.mjs?v=0.5.7';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.7';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
@@ -48,8 +48,15 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   for(const e of targetWithin(env,p,radius))if(e.id!==exclude)env.hit(e,{...p,secondary:true,skill:skillDamage(p.skill,amount)});
   env.addField({x:p.x,y:p.y,radius,color:p.color,until:env.time+.19,visual:true});
  }
+ const recentSpells=new Map(),overloadUntil=new Map();
+ const elements=['fire','cold','lightning'];
+ function authorizedDamage(p,player){
+  return !player.rules?.ancestralBond||['totem','trap','mine','minion'].some(tag=>p.skill.context?.tags?.includes(tag));
+ }
  function applyDot(p,target,env,type,rate,duration,stack=false,key=p.skill.id){
-  if(rate<=0)return;
+  if(rate<=0||env.player.rules?.avatarFire&&type!=='fire'||!authorizedDamage(p,env.player))return;
+  const tags=p.skill.context?.tags??[];
+  rate*=modifiers.calculate(1,['damageOverTime',type+'Damage',...(['fire','cold','lightning'].includes(type)?['elementalDamage']:[])],{tags});
   const index=env.enemies.findIndex(e=>e.id===target.id);
   if(index<0)return;
   const t=env.enemies[index],dots=(t.dots??[]).filter(x=>stack||x.key!==key);
@@ -90,12 +97,13 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const ballista=cast&&skill.deploy==='totem'&&chosen.tags.includes('bow');
   const group=ballista?'ballista':cast&&skill.deploy==='totem'?'totem':null;
   const deployed=group?env?.activeFields?.(f=>f.totemGroup===group)??[]:[];
-  const full=deployed.length>=(ballista?2:1);
+  const full=deployed.length>=(ballista?2:1)+(group&&player.rules?.ancestralBond?1:0);
   if(full&&!cast?.manual)return {player,cooldown:.15,projectiles:[],skill:chosen.id,deferred:true};
-  let payment=payManaCost(player,skill.cost,{eldritchBattery:!!player.rules?.eldritchBattery});
+  let payment=paySkillCost(player,skill.cost,skill.lifeCostRatio);
   if(!payment.paid&&cast)return null;
-  if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(chosen,weapon,[],modifiers,random,ctx);payment=payManaCost(player,0);}
+  if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(chosen,weapon,[],modifiers,random,ctx);payment=paySkillCost(player,0);}
   if(!payment.paid||distance(player,target)<1e-9)return null;
+  if(chosen!==basicBowAttack&&player.rules?.skillManaRecover&&random()<.1)payment.state.mana=Math.min(player.maximumMana,payment.state.mana+player.maximumMana*.1);
   if(chosen.vaalSouls){souls-=chosen.vaalSouls;soulBlockedUntil=time+3;}
   if(chosen.lifeCost)payment.state.life=Math.max(1,payment.state.life-payment.state.maximumLife*chosen.lifeCost);
   if(chosen.shell)payment.state.energyShield=Math.max(payment.state.energyShield??0,payment.state.maximumLife*.17);
@@ -116,7 +124,10 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const range=Math.min(chosen.aimRange||skill.nova?distance(player,target):Infinity,maxFlight);
   const inc=skill.linkedSupports.includes('momentum')?momentum.use(time):0;
   const c=charges.snapshot(time),charge=chargeEffects(c);
-  const rate=(skill.attacksPerSecond+(inc+(skill.source==='spell'?charge.increasedCastSpeed:charge.increasedAttackSpeed))*skill.attackSpeedPerIncrease)*
+  for(const [id,expired] of recentSpells)if(expired<=time)recentSpells.delete(id);
+  const recent=skill.source==='spell'?recentSpells.size*modifiers.calculate(0,'castPerRecentSpell',skill.context):0;
+  if(skill.source==='spell'&&(chosen.castTime??1)>0)recentSpells.set(runtimeId,time+4);
+  const rate=(skill.attacksPerSecond+(inc+recent+(skill.source==='spell'?charge.increasedCastSpeed:charge.increasedAttackSpeed))*skill.attackSpeedPerIncrease)*
    (chosen.charges==='frenzy'?1+.05*c.frenzy:1);
   skill={...skill,damageMultiplier:skill.damageMultiplier*charge.moreDamage*(chosen.charges==='frenzy'?1+.05*c.frenzy:1),
    criticalChance:Math.min(1,skill.criticalChance*(1+charge.increasedCriticalChance)*(chosen.charges==='power'?1+.10*c.power:1)),
@@ -137,7 +148,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const a=bearing(player,target);
   const template={x:player.x,y:player.y,dx:Math.cos(a),dy:Math.sin(a),speed,remainingRange:range,
    pierce:skill.pierce,fork:skill.fork,chain:skill.chain,split:skill.split,canReturn:skill.canReturn,
-   skill,attacker:{accuracy:player.accuracy},rolls:rolls(),color:colorForSkill(chosen),noCollision:chosen.noCollision,
+   skill,attacker:{accuracy:player.accuracy,maximumLife:player.maximumLife,life:player.life,rules:player.rules},rolls:rolls(),color:colorForSkill(chosen),noCollision:chosen.noCollision,
    pulseEvery:chosen.pulseEvery,pulseRadius:chosen.pulseRadius,extraForkChance:skill.extraForkChance,forkRoll:random(),burst:chosen.burst,bounces:chosen.bounce?skill.chain:0,age:0,
    heading:a,launchedX:player.x,launchedY:player.y,wanderSeed:random()*TAU,phaseSeed:random()*TAU};
   const mk=(source,aim,worldEnemies)=>{
@@ -222,18 +233,26 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   return p;
  },onImpact(target,p,time,player){
   const active=p.skill.active??{tags:[]};
+  if(!authorizedDamage(p,player))return target;
   if(active.explosion&&!p.secondary&&!active.corpse&&!active.explodeOnSplit)return target;
   let mult=(p.returning?Math.min(p.skill.returnMultiplier,active.returnMultiplier??1):1)*(active.chainBonus?1+active.chainBonus*(p.chain??0):1);
+  const chainBonus=modifiers.calculate(0,'perChain',p.skill.context)*(p.chainedCount??0);
+  const pierceBonus=modifiers.calculate(0,'perPierce',p.skill.context)*(p.piercedBefore??0);
   if(active.pulseDecay)mult*=Math.max(.15,1-(p.age??0)/(active.projectileLifetime??.56)*.85);
   const distanceTraveled=p.distanceTravelled??0;
-  const pointBlank=p.skill.pointBlank?Math.max(.7,1.3-(distanceTraveled/14)*.6):1;
-  let s={...p.skill,damageMultiplier:p.skill.damageMultiplier*mult,
+  const pointBlank=(p.skill.pointBlank||player.rules?.pointBlank&&p.skill.source==='attack'&&active.tags.includes('projectile'))?Math.max(.7,1.3-(distanceTraveled/14)*.6):1;
+  let s={...p.skill,increasedProjectileDamage:(p.skill.increasedProjectileDamage??0)+chainBonus+pierceBonus,damageMultiplier:p.skill.damageMultiplier*mult,
+   elementalOverloadActive:player.rules?.elementalOverload&&(overloadUntil.get(p.skill.id)??0)>time,
    hitDamageMultiplier:p.skill.hitDamageMultiplier*pointBlank,
    criticalChance:p.phaseDone&&active.sourceKey==='IceSpear'?Math.min(1,p.skill.criticalChance*7):p.skill.criticalChance,
    criticalMultiplier:p.skill.criticalMultiplier+(p.phaseDone&&active.sourceKey==='IceSpear'?.3:0)};
-  const result=resolveAttackImpact({attacker:p.attacker,target,skill:s,modifiers,rolls:p.rolls});
-  let t=result.target;
+  const exposure=target.exposureUntil>time?{...target.defence?.resistances,...Object.fromEntries(elements.map(type=>[type,(target.defence?.resistances?.[type]??0)-(target.exposed?.includes(type)?.25:0)]))}:undefined;
+  const result=resolveAttackImpact({attacker:{...p.attacker,accuracy:player.accuracy,maximumLife:player.maximumLife,life:player.life,rules:player.rules},target:{...target,combatResistances:exposure},skill:s,modifiers,rolls:p.rolls});
+  let t=result.target;delete t.combatResistances;
   if(!result.hit.hit||result.mitigation?.blocked)return t;
+  if(player.rules?.elementalOverload&&result.hit.critical)overloadUntil.set(p.skill.id,time+8);
+  if(player.rules?.elementalEquilibrium&&elements.some(type=>result.damage?.[type]>0))
+   t={...t,exposed:elements.filter(type=>!(result.damage?.[type]>0)),exposureUntil:time+4};
   if(active.cull&&t.life>0&&t.life<=t.maximumLife*.1)t={...t,life:0};
   if(active.charges==='frenzy'&&!p.returning)charges.gain('frenzy',time);
   if(active.charges==='power'&&t.life<=0)charges.gain('power',time);
@@ -241,20 +260,21 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    if(!(rate>0))return;
    t={...t,dots:[...(t.dots??[]).filter(x=>stack||x.key!==key),{type,key,rate,start:time,end:time+duration}]};
   };
-  const ailmentMult=mult*(p.skill.physicalChaosMultiplier??1)*(p.skill.projectileDamageMultiplier??1);
-  if(active.bleed)added('physical',(result.ailmentBase?.physical??0)*.91*ailmentMult*(target.speed>0?3:1),active.duration??8,'bleed');
-  if(active.poisonChance>0&&random()<active.poisonChance)added('chaos',((result.ailmentBase?.physical??0)+(result.ailmentBase?.chaos??0))*.3*ailmentMult,2,'poison',true);
-  if(active.drain){added('chaos',active.baseDot*(active.gemDotScale??1)*mult,active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=Math.min(player.maximumLife,player.life+active.baseDot*.025);}
+  const ailmentMult=mult*(1+chainBonus+pierceBonus)*modifiers.calculate(1,'damageOverTime',p.skill.context)*(p.skill.physicalChaosMultiplier??1)*(p.skill.projectileDamageMultiplier??1);
+  if(active.bleed&&!player.rules?.avatarFire)added('physical',(result.ailmentBase?.physical??0)*.91*ailmentMult*(target.speed>0?3:1),active.duration??8,'bleed');
+  if(!player.rules?.avatarFire&&active.poisonChance>0&&random()<active.poisonChance)added('chaos',((result.ailmentBase?.physical??0)+(result.ailmentBase?.chaos??0))*.3*ailmentMult,2,'poison',true);
+  if(active.drain&&!player.rules?.avatarFire){added('chaos',active.baseDot*(active.gemDotScale??1)*mult*modifiers.calculate(1,['damageOverTime','chaosDamage'],p.skill.context),active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=Math.min(player.maximumLife,player.life+active.baseDot*.025);}
   if(result.damage?.cold>0&&(result.hit.critical||random()<(active.freezeChance??0)))t={...t,frozenUntil:Math.max(t.frozenUntil??0,time+.28*Math.max(.2,mult))};
   if(result.damage?.lightning>0&&(result.hit.critical||active.guaranteedShock))t={...t,shockedUntil:time+1.5};
   if(active.ensnare&&!p.secondary&&(p.pierce??0)===0&&(p.chain??0)===0&&(p.fork??0)===0)t={...t,chilledUntil:time+1.5};
   return {...t,ignites:[...(t.ignites??[]),...(result.ignite?[{rate:result.ignite.rate,start:time,end:time+result.ignite.duration}]:[])]};
  },onHitEffect(p,target,env){
   const a=p.skill.active;
+  if(!authorizedDamage(p,env.player))return;
   if(p.skill.phantasm&&!p.fragment&&target.life<=0&&env.time>phantasmAt&&random()<.55){
    phantasmAt=env.time+.25;const origin={x:target.x,y:target.y};
    const phantasmSkill={...p.skill,id:'phantasm',source:'spell',baseDamage:{physical:8+(a.level??1)*2},conversion:[],
-    active:{tags:['spell','physical','projectile'],sourceKey:'Phantasm'},damageMultiplier:.85,igniteChance:0};
+    context:{...p.skill.context,tags:['spell','physical','projectile','minion']},active:{tags:['spell','physical','projectile'],sourceKey:'Phantasm'},damageMultiplier:.85,igniteChance:0};
    const mk=(source,aim)=>{const direction=bearing(source,aim);return [{...p,...source,dx:Math.cos(direction),dy:Math.sin(direction),
     skill:phantasmSkill,speed:19,remainingRange:10,pierce:Infinity,canReturn:false,pulseEvery:0,hitIds:[],volley:undefined,
     noCollision:false,burst:0,nova:0,fragment:true,color:'#c4d6cb'}];};
@@ -264,7 +284,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(p.skill.mirage&&!p.fragment&&!env.findField(f=>f.deploy==='archer')){
    const mk=(source,aim)=>{const angle=bearing(source,aim);return [{...p,...source,dx:Math.cos(angle),dy:Math.sin(angle),
     remainingRange:Math.max(10,p.speed*.55),fragment:true,delay:0,hitIds:[],volley:undefined,canReturn:false,skill:skillDamage(p.skill,.42)}];};
-   env.addField({x:env.player.x,y:env.player.y,deploy:'archer',mk,radius:.27,color:'#b1c7ca',next:env.time+.65,pulseEvery:.85,until:env.time+3.5});
+   env.addField({x:env.player.x,y:env.player.y,deploy:'archer',mk,radius:.27,color:'#b1c7ca',next:env.time+.65,pulseEvery:.85,until:env.time+3.5*(1+modifiers.calculate(0,'mirageDuration',p.skill.context))});
   }
   if(p.skill.windburst&&walked>=10){walked=0;const q={...p,pulseEvery:0,fragment:true,skill:skillDamage(p.skill,.8)};for(const shot of radial(q,6,p.speed*.18,p.heading))env.spawn(shot);paintDormant(p,env,1.65,.2);}
   if(a.groundOnImpact)field(p,env,a.ground);

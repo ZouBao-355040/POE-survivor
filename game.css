@@ -40,3 +40,23 @@ h2,h3,p{margin:.6em 0}h2{color:var(--gold);font-size:1.28em}h3{font-size:1em}.mu
 @media(max-width:430px){.craft-dialog[open]{padding:9px;gap:6px}.craft-body{gap:5px}.craft-rail button{padding:5px 6px}.craft-item{padding:6px}.craft-item .gear-icon{width:43px;height:43px}}
 @media(max-width:440px){header .brand{flex:1 0 auto}header #status{order:1;flex:1 0 100%}}
 .talent-tree{min-width:0}.talent-points{color:var(--gold);font-weight:700}.talent-routes{margin-block:9px}.talent-node[data-talent-state=allocated]{border-color:#e3c67c;background:#3e3322}.talent-node[data-talent-state=available]{border-color:#8ebfae}.talent-node[data-talent-state=locked]{background:#222a30;color:#aeb4ba;cursor:default}.talent-tree>a{display:inline-block;margin-top:10px}
+
+/* Shared passive map. Only the canvas owns pan/pinch; the page remains scrollable. */
+.talent-dialog{width:min(97vw,1070px);max-width:1070px}
+.talent-shell{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:10px;margin-block:8px}
+.talent-map{position:static;display:block;width:100%;height:clamp(230px,56dvh,530px);background:#141d23;border:1px solid #53616b;border-radius:10px;touch-action:none;cursor:grab}
+.talent-map:active{cursor:grabbing}
+.talent-sidebar{min-width:0;display:flex;flex-direction:column;gap:6px}
+.talent-tools{display:flex;flex-wrap:wrap;gap:5px}
+.talent-tools input,.talent-tools select,#start-class{background:#19262e;color:#e8e6db;border:1px solid #52636d;border-radius:8px;padding:7px;min-height:38px;font:inherit}
+.talent-tools input{min-width:120px;flex:1}
+.talent-results{max-height:122px;overflow:auto;display:flex;flex-wrap:wrap;gap:5px;align-content:start}
+.talent-results>button{font-size:.82rem;min-height:34px}
+.talent-results button small{margin-inline-start:5px;color:#aeb4ba}
+.talent-results [data-talent-state=available]{border-color:#92e1c5}
+.talent-results [data-talent-state=allocated]{border-color:#e7b964}
+.talent-details{border-top:1px solid #53616b;max-height:310px;overflow:auto;padding:4px 3px}
+.talent-details h3,.talent-details p{margin:5px 0}
+.mastery-choice{margin:5px 0;padding:5px 0;border-bottom:1px solid #44515a}
+#es-meter{position:fixed;top:94px;left:12px;color:#a8dff2;font-size:.75rem;background:#19272ee8;border-radius:6px;padding:3px 6px}
+@media(max-width:680px){.talent-shell{grid-template-columns:1fr}.talent-map{height:clamp(172px,31dvh,260px)}.talent-results{max-height:80px}.talent-details{max-height:160px}.talent-tools button{font-size:.82rem;padding:5px 8px;min-height:33px}}

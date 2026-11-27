@@ -32,7 +32,8 @@ export function compileAttack(active,weapon,supports,modifiers,random,context={}
  const product=key=>linked.reduce((n,s)=>n*(s[key]??1),1);
  const sum=key=>linked.reduce((n,s)=>n+(s[key]??0),0);
  const any=key=>linked.some(s=>s[key]);
- const tags=[...new Set([...(context.tags??[]),...(active.tags??[])])];
+ const deployment=active.deploy??linked.find(s=>s.deploy)?.deploy;
+ const tags=[...new Set([...(context.tags??[]),...(active.tags??[]),...(deployment?[deployment]:[]),...(active.melee?['melee']:[])])];
  const ctx={...context,tags};
  const spell=tags.includes('spell')&&!tags.includes('attack');
  const effectiveness=active.effectiveness??1;
@@ -57,15 +58,17 @@ export function compileAttack(active,weapon,supports,modifiers,random,context={}
  if(sum('gainFire'))conversion.push({from:'physical',to:'fire',kind:'extra',fraction:sum('gainFire')});
  return {source:spell?'spell':'attack',id:active.id,active,context:ctx,baseDamage,effectiveness,conversion,
   attackSpeedPerIncrease:speedSlope,attacksPerSecond:modifiers.calculate(speedBase,rateKey,ctx)+supportIncrease*speedSlope,
-  criticalChance:Math.min(1,modifiers.calculate(criticalBase+(active.critBonus??0),'criticalChance',ctx)),criticalMultiplier:1.5,
-  cost:Math.max(0,Math.floor(modifiers.calculate((active.cost??0)*product('costMultiplier'),'manaCost',ctx))),
+  baseCriticalChance:criticalBase+(active.critBonus??0),
+  criticalChance:Math.min(1,modifiers.calculate(criticalBase+(active.critBonus??0),'criticalChance',ctx)),criticalMultiplier:modifiers.calculate(1.5,'criticalMultiplier',ctx),
+  lifeCostRatio:modifiers.calculate(0,'lifeCostRatio',ctx),noBlock:modifiers.calculate(0,'noBlock',ctx)>0,
+  cost:Math.max(0,Math.floor(modifiers.calculate((active.cost??0)*product('costMultiplier'),'manaCost',ctx)/(1+modifiers.calculate(0,'manaEfficiency',ctx)))),
   increasedProjectileSpeed:sum('increasedProjectileSpeed'),projectileSpeedMultiplier:product('projectileSpeedMultiplier'),
   increasedProjectileDamage:sum('increasedProjectileDamage'),additionalProjectiles:sum('additionalProjectiles'),
-  pierce:active.noPierce?0:(active.pierce??0)+sum('pierce'),extraPierce:active.noPierce?0:sum('pierce'),fork:sum('fork'),chain:Math.floor(((active.chain??0)+sum('chain'))*product('chainMultiplier')),
-  canReturn:active.canReturn||any('canReturn'),split:(active.split??0)+(active.splitCountInstead?sum('additionalProjectiles'):0),
+  pierce:active.noPierce?0:(active.pierce??0)+sum('pierce')+modifiers.calculate(0,'pierce',ctx),extraPierce:active.noPierce?0:sum('pierce')+modifiers.calculate(0,'pierce',ctx),fork:sum('fork'),chain:Math.floor(((active.chain??0)+sum('chain'))*product('chainMultiplier')),
+  canReturn:active.canReturn||any('canReturn')||modifiers.calculate(0,'return',ctx)>0,split:(active.split??0)+(active.splitCountInstead?sum('additionalProjectiles'):0),
   extraForkChance:sum('extraForkChance'),returnMultiplier:product('returnMultiplier'),
   echo:sum('echo'),echoRate:product('echoRate'),echoLast:product('echoLast'),
-  unleash:Math.max(0,...linked.map(s=>s.unleash??0)),unleashPeriod:Math.min(1.2,...linked.map(s=>s.unleashPeriod??1.2)),
+  unleash:linked.some(s=>s.unleash)?Math.max(0,...linked.map(s=>s.unleash??0))+modifiers.calculate(0,'unleashSeals',ctx):0,unleashPeriod:Math.min(1.2,...linked.map(s=>s.unleashPeriod??1.2)),
   mirage:any('mirage'),wisps:any('wisps'),voidstorm:any('voidstorm'),phantasm:any('phantasm'),pointBlank:any('pointBlank'),pinpoint:any('pinpoint'),gluttony:any('gluttony'),windburst:any('windburst'),retaliate:any('retaliate'),ironGrip:any('ironGrip'),deploy:active.deploy??linked.find(s=>s.deploy)?.deploy,focused:any('focused'),volley:any('volley'),nova:any('nova'),
   sequence:active.sequence||any('sequence'),sequenceTimePerShot:sum('sequenceTimePerShot'),
   linkedSupports:linked.map(s=>s.id),igniteChance:active.igniteChance??0,damageMultiplier:product('damageMultiplier'),

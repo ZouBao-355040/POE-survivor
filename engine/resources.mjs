@@ -24,6 +24,15 @@ export function payManaCost(state,cost,{eldritchBattery=false}={}){
  if(state.mana+(eldritchBattery?state.energyShield:0)<cost)return {paid:false,state};
  const next={...state};const es=eldritchBattery?Math.min(next.energyShield,cost):0;next.energyShield=(next.energyShield??0)-es;next.mana-=cost-es;return {paid:true,state:next};
 }
+export function paySkillCost(state,cost,lifeRatio=0){
+ if(!Number.isFinite(cost)||cost<0)throw new RangeError('Invalid cost');
+ if(state.rules?.bloodMagic)lifeRatio=1;
+ const life=Math.min(cost,Math.floor(cost*lifeRatio));
+ if(life>0&&life>=state.life)return {paid:false,state};
+ const payment=payManaCost(state,cost-life,{eldritchBattery:!!state.rules?.eldritchBattery});
+ if(!payment.paid||!life)return payment;
+ return {paid:true,state:{...payment.state,life:state.life-life}};
+}
 export function recover(state,key,amount){if(!['life','mana','energyShield'].includes(key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');const max=state[{life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'}[key]];return {...state,[key]:Math.min(max-(key==='life'?(state.reservedLife??0):key==='mana'?(state.reservedMana??0):0),state[key]+amount)};}
 
 export const mindOverMatterFraction=.4;

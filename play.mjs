@@ -1,21 +1,21 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.6';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.6';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.6';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.7';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.7';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.7';
 import {ModifierStore} from './engine/modifiers.mjs';
-import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.6';
-import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.6';
-import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.6';
+import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.7';
+import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.7';
+import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.7';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.6';
-import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.6';
-import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.6';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.6';
-import {allocateTalent,talentPoints} from './engine/act-one-talents.mjs?v=0.5.6';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.6';
-import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.6';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.7';
+import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.7';
+import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.7';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.7';
+import {allocate as allocateTalent,points as talentPoints,classNames} from './engine/passive-tree.mjs?v=0.5.7';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.7';
+import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.7';
 
 const $=s=>document.querySelector(s);
 const panel=$('#gem-panel'),toggle=$('#gems'),canvas=$('canvas'),ctx=canvas.getContext('2d'),status=$('#status'),reward=$('#reward');
@@ -56,10 +56,12 @@ function reset(askGuide=true){
  state={zone:'beach',gateOpen:false,routeIndex:0,chapterComplete:false,player:{x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}},
   enemies:openingBeach(),projectiles:[],flasks:starterFlasks(),gold:0,goldDrops:[],pendingLoot:emptyBattleLoot(),time:0,progression:{level:1},kills:0};
  $('#toast').textContent='';reward.hidden=true;town.inert=false;activeCurrencyChoices=null;
- if(askGuide)guideChoice.showModal();
+ if(askGuide){$('#start-class').value='Ranger';guideChoice.showModal();}
 }
+for(const [klass,name] of Object.entries(classNames))$('#start-class').add(new Option(name,klass,klass==='Ranger',klass==='Ranger'));
 function startGuide(want){
- guideChoice.close();guide=want;tab='owned';picked=null;clearInput();
+ state.progression={...state.progression,passiveClass:$('#start-class').value};
+ updateEquipment({refill:true});guideChoice.close();guide=want;tab='owned';picked=null;clearInput();
  if(want)openGems();
 }
 $('#start-guide').onclick=()=>startGuide(true);
@@ -70,11 +72,11 @@ function enterTown(){
   if(!canEnterTown(state))return;
   state.progression=grantExperience(state.progression,state.beachXP??0,xpCost);
   state={...state,zone:'town',enemies:[],projectiles:[],fields:[],goldDrops:[],time:0,
-    cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,x:0,y:0}};
+    cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else if(state.zone==='trial'&&(state.dead||state.encounter?.phase==='cleared')){
   const route=advanceRoute(state);
   state={...route,zone:'town',dead:false,encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
-    flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,x:0,y:0}};
+    flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else return;
  const claimed=claimBattleLoot(townItems,state.gold,state.pendingLoot);
  townItems=claimed.town;state.gold=claimed.gold;state.pendingLoot=claimed.pending;
@@ -89,13 +91,13 @@ function startStage(route){
  const next=trialStage(route.routeIndex??0);
  if(!next)return;
  if(townDialog.open)townDialog.close();
- state=beginTrial(route,next);acc=0;clearInput();$('#toast').textContent='';
+ state=beginTrial(route,next);state.player={...state.player,shieldInterruptedAt:0,shieldCharging:false};acc=0;clearInput();$('#toast').textContent='';
 }
 function leaveTown(){if(state.zone==='town'&&!state.progression.pendingChoices)startStage(state);}
 function nextZone(){if(state.progression.pendingChoices)return;const route=advanceRoute(state);if(route!==state)startStage(route);}
-function updateEquipment(){
+function updateEquipment({refill=state.zone==='town'}={}){
  inventory.setLayout(equippedSocketLayout(townItems));
- state.player=applyLoadout(state.player,townItems,state.progression,modifiers,{refill:state.zone==='town'});
+ state.player=applyLoadout(state.player,townItems,state.progression,modifiers,{refill});
 }
 $('#town-entry').onclick=enterTown;
 $('#beach-retry').onclick=()=>{
@@ -299,7 +301,7 @@ function renderShop(){
  refresh();
 }
 function townPage(title){
- townDialog.classList.remove('craft-dialog');townDialog.replaceChildren();
+ townDialog.classList.remove('craft-dialog','talent-dialog');townDialog.replaceChildren();
  const top=div('','panel-top');
  top.append(heading(title),button('關閉',()=>townDialog.close()));
  townDialog.append(top,div('持有金幣：'+state.gold,'shop-wallet'));
@@ -308,7 +310,7 @@ function gearIcon(g){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.classList.add('gear-icon');svg.setAttribute('aria-hidden','true');svg.dataset.rarity=g.rarity;
  const use=document.createElementNS(svg.namespaceURI,'use');
- use.setAttribute('href','./assets/gear-icons.svg?v=0.5.6#'+g.slot);svg.append(use);return svg;
+ use.setAttribute('href','./assets/gear-icons.svg?v=0.5.7#'+g.slot);svg.append(use);return svg;
 }
 function gearLabel(g,{detail=false}={}){
  const card=div('','gear-label'),caption=div('','gear-copy');
@@ -449,15 +451,15 @@ function renderCraft({message='',focus}={}){
  if(focus)document.getElementById(focus)?.focus({preventScroll:true});
 }
 function renderTalents(){
- townPage('天賦 · 遊俠起手區');
+ townPage('主天賦樹');
+ townDialog.classList.add('talent-dialog');
  const tree=div('','talent-tree');
  townDialog.append(tree);
- const redraw=()=>renderTalentTree(tree,{progression:state.progression,onAllocate:id=>{
+ renderTalentTree(tree,{progression:state.progression,onAllocate:(id,option)=>{
   if(state.practice)return;
-  state.progression=allocateTalent(state.progression,id);
-  updateEquipment();redraw();
+  state.progression=allocateTalent(state.progression,id,option);
+  updateEquipment();return state.progression;
  }});
- redraw();
  if(state.practice)townDialog.append(div('技能試射不會保留或使用主線天賦點。','muted'));
 }
 function openService(render){
@@ -474,7 +476,7 @@ function openCharacterPanel(draw){
 }
 $('#gear-open').onclick=()=>openCharacterPanel(renderEquipment);
 $('#talent-open').onclick=()=>openCharacterPanel(renderTalents);
-townDialog.addEventListener('close',()=>{townDialog.classList.remove('craft-dialog');clearInput();acc=0;});
+townDialog.addEventListener('close',()=>{townDialog.classList.remove('craft-dialog','talent-dialog');clearInput();acc=0;});
 reset();
 const menuStart=$('#menu-start'),restart=$('#restart'),confirmRestart=$('#confirm-restart');
 function restartPhase(confirming){
@@ -509,7 +511,7 @@ function simulate(){
  const manualRequest=manualQueued?facing:null;manualQueued=false;
  const castPlan=inventory.castPlan();
  const step=state.zone==='beach'?stepBeach:state.zone==='trial'?stepTrial:stepWorld;
- state=step(state,.02,{...hooks,direction,castPlan,manualRequest,manaRegen:state.practice?22:2.85,enemyModifiers,experienceRequired:state.practice?null:xpCost,deferLoot:true});
+ state=step(state,.02,{...hooks,direction,castPlan,manualRequest,manaRegen:((state.practice?22:2.85)+(state.player.manaRegenFlat??0))*(state.player.manaRegenMultiplier??1),enemyModifiers,experienceRequired:state.practice?null:xpCost,deferLoot:true});
  if(manualRequest&&!state.events?.some(e=>e.type==='fire'&&e.manual))notify('手動技能未施放：確認魔力與冷卻。');
  for(const ev of state.events??[]){
   if(ev.type==='boss-arrives')notify(ev.reason==='clear'?'普通怪已清空，'+ev.name+' 提前登場！':'時間到，'+ev.name+' 已登場！');
@@ -611,7 +613,8 @@ function render(){
  let phase=0;
  for(const [k,n] of Object.entries(hooks.charges.snapshot(state.time))){for(let i=0;i<n;i++){const a=state.time*1.9+(phase++)*1.9;dot({x:p.x+.91*Math.cos(a),y:p.y+.91*Math.sin(a)},.12,{power:'#a5bdff',frenzy:'#80db8c',endurance:'#e88985'}[k]);}}
  $('#life').value=p.life/p.maximumLife;$('#life-num').textContent=Math.ceil(p.life)+'/'+p.maximumLife;
- $('#mana').value=p.mana/p.maximumMana;$('#mana-num').textContent=Math.floor(p.mana)+'/'+p.maximumMana;
+ $('#mana').value=p.maximumMana?p.mana/p.maximumMana:0;$('#mana-num').textContent=p.maximumMana?Math.floor(p.mana)+'/'+p.maximumMana:'血魔法';
+ const shield=$('#es-meter');shield.hidden=!(p.maximumEnergyShield>0);shield.textContent=shield.hidden?'':'護盾 '+Math.ceil(p.energyShield??0)+'/'+p.maximumEnergyShield;
  for(const [key,base] of Object.entries(flaskBases)){
   const f=state.flasks[key],tag=$('#flask-'+key);
   tag.dataset.active=String(f.remaining>0);
