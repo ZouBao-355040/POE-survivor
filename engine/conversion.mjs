@@ -18,4 +18,17 @@ export function convertDamage(base,rules=[]){
  }return packets;
 }
 export function aggregateDamage(packets){const result=emptyDamage();for(const p of packets)result[p.type]+=p.amount;return result;}
-export function scalePackets(packets,modifiers,context={}){return packets.map(p=>({...p,amount:modifiers.calculate(p.amount,['damage',...p.history.map(t=>t+'Damage')],context)}));}
+export function prepareBaseDamage(base,modifiers,context={},effectiveness=1){
+ const out=emptyDamage();
+ for(const t of damageTypes)out[t]=Math.max(0,(base[t]??0)+modifiers.breakdown(t+'Damage',context).flat*effectiveness);
+ return out;
+}
+export function scalePackets(packets,modifiers,context={}){
+ return packets.map(p=>{
+ const keys=['damage',...p.history.map(t=>t+'Damage')];
+ if(p.history.some(t=>['fire','cold','lightning'].includes(t)))keys.push('elementalDamage');
+ const b=modifiers.breakdown(keys,context);
+ if(b.override!==undefined)throw new Error('Damage override requires explicit calculation rule');
+ return {...p,amount:Math.max(0,p.amount*(1+b.increased)*b.multipliers.reduce((a,b)=>a*b,1))};
+ });
+}
