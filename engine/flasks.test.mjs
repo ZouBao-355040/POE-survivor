@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {starterFlasks,autoFlasks,advanceFlaskRecovery} from './flasks.mjs';
+import {stepWorld} from './game-loop.mjs';
+const full={x:0,y:0,speed:1,life:100,maximumLife:100,mana:100,maximumMana:100};
+test('starter flasks are full but never spend charges on a full resource',()=>{
+ const flasks=starterFlasks();
+ assert.deepEqual(autoFlasks(full,flasks,1),{flasks,used:[]});
+ const result=autoFlasks({...full,mana:99},flasks);
+ assert.deepEqual(result.used,['mana']);
+ assert.equal(result.flasks.life.charges,21);
+ assert.equal(result.flasks.mana.charges,18);
+ assert.equal(result.flasks.mana.remaining,3);
+});
+test('a single missing life is enough, but not before the last charge',()=>{
+ const player={...full,life:99};
+ const flasks=starterFlasks();
+ flasks.life.charges=19;
+ assert.deepEqual(autoFlasks(player,flasks,1).used,[]);
+ const result=autoFlasks(player,flasks,2);
+ assert.deepEqual(result.used,['life']);
+ assert.equal(result.flasks.life.charges,14);
+});
+test('recovery uses PoE starter amounts and ends at usable resource caps',()=>{
+ const flasks=autoFlasks({...full,life:1,mana:0},starterFlasks()).flasks;
+ const partial=advanceFlaskRecovery({...full,life:1,mana:0},flasks,1.5);
+ assert.equal(partial.player.life,36);
+ assert.equal(partial.player.mana,25);
+ const finished=advanceFlaskRecovery(partial.player,partial.flasks,2);
+ assert.equal(finished.player.life,71);
+ assert.equal(finished.player.mana,50);
+ assert.equal(finished.flasks.life.remaining,0);
+ const capped=advanceFlaskRecovery({...full,life:99,mana:69,reservedMana:30},flasks,.2);
+ assert.equal(capped.player.mana,70);
+ assert.equal(capped.flasks.mana.remaining,0);
+ assert.equal(capped.flasks.life.remaining,0);
+ assert.deepEqual(autoFlasks({...full,life:0,mana:0},flasks,100).used,[]);
+});
+test('world orders mana spend and kill refill before autoflasks and pauses all flask state',()=>{
+ const flasks=starterFlasks();flasks.life.charges=20;
+ const state={player:{...full,life:98},flasks,enemies:[{id:'dead',x:2,y:0,life:0},{id:'target',x:3,y:0,life:50}],projectiles:[]};
+ const shot=p=>({player:{...p,mana:99},projectiles:[],cooldown:1,skill:'test'});
+ const next=stepWorld(state,.02,{onFire:shot});
+ assert.deepEqual(next.events.filter(e=>e.type==='flask').map(e=>e.resource),['life','mana']);
+ assert.equal(next.flasks.life.charges,14);
+ assert.equal(next.flasks.mana.charges,18);
+ const paused=stepWorld({...next,paused:true},.02);
+ assert.deepEqual(paused.flasks,next.flasks);
+ assert.deepEqual(paused.player,next.player);
+});

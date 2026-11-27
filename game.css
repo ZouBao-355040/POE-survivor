@@ -4,7 +4,8 @@ header{position:fixed;top:max(8px,env(safe-area-inset-top));left:10px;right:10px
 button{pointer-events:auto;background:#29343d;color:var(--ink);border:1px solid #6a6a65;padding:7px 11px;border-radius:7px;min-height:40px;font:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}button[aria-pressed=true]{border-color:#eac67b;background:#4a3c29}button:disabled{opacity:.46;cursor:default}#status{flex:1;color:var(--dim);white-space:nowrap;font-size:12px}
 .meters{position:fixed;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));display:flex;justify-content:space-between;gap:8px;pointer-events:none}.meters label{flex:1;max-width:250px;display:flex;align-items:center;gap:5px;font-size:11px}.meters progress{flex:1;width:20px;accent-color:#c05657}#mana{accent-color:#548cdd}
-#hint,#toast{position:fixed;left:12px;right:12px;bottom:37px;color:var(--dim);pointer-events:none;font-size:12px}#toast{bottom:57px;color:var(--gold)}
+.meter-side{flex:1;max-width:250px;min-width:0}.flask{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}.flask-life[data-ready=true],.flask-life[data-active=true]{color:#ffa5a5}.flask-mana[data-ready=true],.flask-mana[data-active=true]{color:#9cc8ff}
+#hint,#toast{position:fixed;left:12px;right:12px;bottom:53px;color:var(--dim);pointer-events:none;font-size:12px}#toast{bottom:73px;color:var(--gold)}
 dialog,.modal{background:var(--panel);color:var(--ink);border:1px solid #9a8260;border-radius:12px;padding:16px;box-shadow:0 8px 42px #0009}
 dialog{width:min(780px,calc(100% - 20px));max-width:none;max-height:88dvh;overflow:auto;overscroll-behavior:contain}dialog::backdrop{background:#080b10c9}
 .modal{position:fixed;z-index:3;inset:clamp(82px,14vh,120px) max(12px,calc((100vw - 580px)/2)) auto;max-height:70dvh;overflow:auto;text-align:center}.modal button{margin:4px}

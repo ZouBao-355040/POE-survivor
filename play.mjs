@@ -1,4 +1,5 @@
-import {stepWorld} from './engine/game-loop.mjs';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.3.2';
+import {stepWorld} from './engine/game-loop.mjs?v=0.3.2';
 import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs';
@@ -41,7 +42,7 @@ function reset(){
  inventory.select('burning-arrow');picked=null;tab='owned';if(panel.open)panel.close();
  clearInput();acc=0;hooks=rangerHooks({modifiers,inventory});
  state={player:{x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}},
-  enemies:[],projectiles:[],time:0,progression:{level:1},kills:0};
+  enemies:[],projectiles:[],flasks:starterFlasks(),time:0,progression:{level:1},kills:0};
  $('#toast').textContent='';reward.hidden=true;
 }
 function closeGems(){if(panel.open)panel.close();state={...state,paused:false};acc=0;clearInput();toggle.focus();}
@@ -183,6 +184,12 @@ function render(){
  for(const [k,n] of Object.entries(hooks.charges.snapshot(state.time))){for(let i=0;i<n;i++){const a=state.time*1.9+(phase++)*1.9;dot({x:p.x+.91*Math.cos(a),y:p.y+.91*Math.sin(a)},.12,{power:'#a5bdff',frenzy:'#80db8c',endurance:'#e88985'}[k]);}}
  $('#life').value=p.life/p.maximumLife;$('#life-num').textContent=Math.ceil(p.life)+'/'+p.maximumLife;
  $('#mana').value=p.mana/p.maximumMana;$('#mana-num').textContent=Math.floor(p.mana)+'/'+p.maximumMana;
+ for(const [key,base] of Object.entries(flaskBases)){
+  const f=state.flasks[key],tag=$('#flask-'+key);
+  tag.dataset.active=String(f.remaining>0);
+  tag.dataset.ready=String(f.charges===base.capacity);
+  tag.textContent=(key==='life'?'紅水':'藍水')+' '+f.charges+'/'+base.capacity+(f.remaining>0?' · 回復中':'');
+ }
  const n=Math.floor(state.time??0);
  status.textContent=(state.practice?'試射場 · ':'')+'等級 '+state.progression.level+' · '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')+' · 擊殺 '+state.kills+(state.dead?' · 已死亡':'');
  const selected=inventory.current()?.active;

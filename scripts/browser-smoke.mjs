@@ -13,14 +13,17 @@ async function verify(viewport,mobile){
  await page.clock.install();
  await page.goto(entry,{waitUntil:'networkidle'});
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('等級'));
- assert.match(await page.locator('.brand').innerText(),/v0\.3\.1/);
+ assert.match(await page.locator('.brand').innerText(),/v0\.3\.2/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await page.clock.runFor(2300);
+ assert.match(await page.locator('#flask-life').innerText(),/^紅水 21\/21$/);
+ const manaCharges=Number((await page.locator('#flask-mana').innerText()).match(/藍水 (\d+)\/24/)?.[1]);
+ assert.ok(manaCharges<24,'the first mana spend triggers the full blue flask');
  await page.getByRole('button',{name:'寶石',exact:true}).click();
  assert.ok(await page.getByRole('dialog').isVisible());
  const snapshot=()=>page.evaluate(()=>[
   document.querySelector('#status').textContent,document.querySelector('#life').value,
-  document.querySelector('#mana').value,document.querySelector('canvas').toDataURL()]);
+  document.querySelector('#mana').value,document.querySelector('#flask-life').textContent,document.querySelector('#flask-mana').textContent,document.querySelector('canvas').toDataURL()]);
  const paused=await snapshot();await page.clock.runFor(1900);
  assert.deepEqual(await snapshot(),paused,'world state and rendered battlefield must freeze');
  await page.getByRole('button',{name:'PoE 寶石圖鑑'}).click();
