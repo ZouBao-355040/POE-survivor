@@ -5,15 +5,17 @@ import {GemInventory} from './engine/gem-inventory.mjs';
 import {burningArrow} from './engine/starter-data.mjs';
 import {momentumSupport} from './engine/momentum.mjs';
 import {beginReward,rewardOptions} from './engine/rewards.mjs';
+const gemNames={'burning-arrow':'燃燒箭矢','momentum':'動量輔助','faster-attacks':'快速攻擊輔助','added-cold-damage':'附加冰冷傷害輔助','added-lightning-damage':'附加閃電傷害輔助','basic-bow-attack':'普通攻擊'};
+const gemName=id=>gemNames[id]??id;
 let inventory;
 const catalog=[burningArrow,momentumSupport,{id:'added-cold-damage',kind:'support',requiresAll:['attack'],addedDamage:{cold:[4,6]},costMultiplier:1.2},{id:'added-lightning-damage',kind:'support',requiresAll:['attack'],addedDamage:{lightning:[1,8]},costMultiplier:1.2},{id:'faster-attacks',kind:'support',requiresAll:['attack'],increasedAttackSpeed:.20,costMultiplier:1.10}];
 const panel=document.createElement('section');panel.style.cssText='position:fixed;inset:12% 5%;overflow:auto;background:#20272d;padding:16px;border:1px solid #99845e;z-index:5';panel.hidden=true;document.body.append(panel);
 const toggle=document.createElement('button');toggle.textContent='寶石';document.querySelector('header').append(toggle);toggle.onclick=()=>{panel.hidden=!panel.hidden;renderGems();};
 let picked=null;
 function renderGems(){panel.replaceChildren();const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>panel.hidden=true;panel.append(close);const title=document.createElement('p');title.textContent='選取持有寶石，再點擊插槽裝備。';panel.append(title);
-for(const [id,g] of inventory.owned){const b=document.createElement('button');b.textContent=(picked===id?'✓ ':'')+id;b.onclick=()=>{picked=id;renderGems();};panel.append(b);}
-for(const [group,slots] of Object.entries(inventory.board.groups)){const row=document.createElement('p');row.textContent=({weapon:'武器',body:'胸甲',helmet:'頭盔',gloves:'手套',boots:'鞋子'})[group]+' ';slots.forEach((g,i)=>{const b=document.createElement('button');b.textContent=g?g.id:'○';b.onclick=()=>{if(picked){inventory.equip(picked,group,i);picked=null;}else if(g)inventory.unequip(group,i);renderGems();};row.append(b);});panel.append(row);}
-const select=document.createElement('p');select.textContent='目前技能：'+(inventory.selected??'普通攻擊')+' ';for(const g of Object.values(inventory.board.groups).flat().filter(g=>g?.kind==='active')){const b=document.createElement('button');b.textContent=g.id;b.onclick=()=>{inventory.select(g.instanceId);renderGems();};select.append(b);}panel.append(select);}
+for(const [id,g] of inventory.owned){const b=document.createElement('button');b.textContent=(picked===id?'✓ ':'')+gemName(id);b.onclick=()=>{picked=id;renderGems();};panel.append(b);}
+for(const [group,slots] of Object.entries(inventory.board.groups)){const row=document.createElement('p');row.textContent=({weapon:'武器',body:'胸甲',helmet:'頭盔',gloves:'手套',boots:'鞋子'})[group]+' ';slots.forEach((g,i)=>{const b=document.createElement('button');b.textContent=g?gemName(g.id):'○';b.onclick=()=>{if(picked){inventory.equip(picked,group,i);picked=null;}else if(g)inventory.unequip(group,i);renderGems();};row.append(b);});panel.append(row);}
+const select=document.createElement('p');select.textContent='目前技能：'+(inventory.selected?gemName(inventory.selected):'普通攻擊')+' ';for(const g of Object.values(inventory.board.groups).flat().filter(g=>g?.kind==='active')){const b=document.createElement('button');b.textContent=gemName(g.id);b.onclick=()=>{inventory.select(g.instanceId);renderGems();};select.append(b);}panel.append(select);}
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),status=document.querySelector('#status'),reward=document.querySelector('#reward');
 const modifiers=new ModifierStore(),enemyModifiers=new ModifierStore();
 let hooks,state,dir={x:0,y:0},origin=null,last=performance.now(),acc=0;
@@ -25,7 +27,7 @@ canvas.onpointermove=e=>{if(origin)dir={x:(e.clientX-origin.x)/40,y:(e.clientY-o
 canvas.onpointerup=canvas.onpointercancel=()=>{origin=null;dir={x:0,y:0};};
 document.querySelector('#restart').onclick=reset;
 function renderReward(){const p=state.progression;reward.replaceChildren();const h=document.createElement('h2');h.textContent='升級 · 獲得天賦點';reward.append(h);function button(label,action){const b=document.createElement('button');b.textContent=label;b.onclick=action;reward.append(b);}
-if(p.reward){for(const g of p.reward.options)button(g.id,()=>{state.progression=inventory.claim(p,g.id);renderReward();});return;}
+if(p.reward){for(const g of p.reward.options)button(gemName(g.id),()=>{state.progression=inventory.claim(p,g.id);renderReward();});return;}
 let available=0;for(const kind of ['active','support']){const config={catalog,board:inventory.board,ownedIds:inventory.ownedIds()};if(rewardOptions({...config,kind}).length){available++;button(kind==='active'?'主動技能':'輔助技能',()=>{state.progression=beginReward(p,kind,config);renderReward();});}}
 if(!available){const msg=document.createElement('p');msg.textContent='目前測試寶石池已全部取得。';reward.append(msg);button('繼續戰鬥',()=>{state.progression={...p,pendingChoices:p.pendingChoices-1};renderReward();});}}
 
