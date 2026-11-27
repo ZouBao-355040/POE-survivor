@@ -6,7 +6,7 @@ import {burningArrow} from './engine/starter-data.mjs';
 import {momentumSupport} from './engine/momentum.mjs';
 import {beginReward,rewardOptions} from './engine/rewards.mjs';
 let inventory;
-const catalog=[burningArrow,momentumSupport];
+const catalog=[burningArrow,momentumSupport,{id:'faster-attacks',kind:'support',requiresAll:['attack'],increasedAttackSpeed:.20,costMultiplier:1.10}];
 const panel=document.createElement('section');panel.style.cssText='position:fixed;inset:12% 5%;overflow:auto;background:#20272d;padding:16px;border:1px solid #99845e;z-index:5';panel.hidden=true;document.body.append(panel);
 const toggle=document.createElement('button');toggle.textContent='寶石';document.querySelector('header').append(toggle);toggle.onclick=()=>{panel.hidden=!panel.hidden;renderGems();};
 let picked=null;
