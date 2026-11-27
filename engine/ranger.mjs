@@ -12,7 +12,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
  if(!payment.paid){chosen=basicBowAttack;skill=compileAttack(basicBowAttack,weapon,[],modifiers,random);payment=payManaCost(player,skill.cost);}
  if(!payment.paid)return null;
  const d=Math.hypot(target.x-player.x,target.y-player.y);if(!d)return null;
- const speed=modifiers.calculate(chosen.projectileSpeed??32.6,'projectileSpeed',skill.context);
+ const baseSpeed=chosen.projectileSpeed??32.6;const ps=modifiers.breakdown('projectileSpeed',skill.context);const speed=Math.max(0,modifiers.calculate(baseSpeed,'projectileSpeed',skill.context)+(ps.override===undefined?(baseSpeed+ps.flat)*ps.multipliers.reduce((a,b)=>a*b,1)*skill.increasedProjectileSpeed:0));
  const duration=chosen.projectileLifetime??1;
  const range=chosen.fixedProjectileRange??speed*duration;
  const inc=skill.linkedSupports.includes('momentum')?momentum.use(time):0;
