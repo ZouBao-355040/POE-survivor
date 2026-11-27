@@ -2,6 +2,7 @@ import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './co
 import {resolveHit} from './hit.mjs';
 import {mitigateHit} from './defence.mjs';
 import {applyDamage,payManaCost} from './resources.mjs';
+import {igniteFromPackets} from './ignite.mjs';
 export function attack({attacker,target,skill,modifiers,rolls,context={}}){
  context={...context,...(skill.context??{})};
  const payment=payManaCost(attacker,skill.cost??0,{eldritchBattery:!!attacker.rules?.eldritchBattery});
@@ -10,10 +11,12 @@ export function attack({attacker,target,skill,modifiers,rolls,context={}}){
  const nextTarget={...target,entropy:hit.entropy};
  if(!hit.hit)return {performed:true,hit,attacker:payment.state,target:nextTarget};
  const base=prepareBaseDamage(skill.baseDamage,modifiers,context,skill.effectiveness??1);
- const damage=aggregateDamage(scalePackets(convertDamage(base,skill.conversion??[]),modifiers,context));
+ const packets=convertDamage(base,skill.conversion??[]);
+ const damage=aggregateDamage(scalePackets(packets,modifiers,context));
  for(const t of Object.keys(damage))damage[t]*=skill.damageMultiplier??1;
  if(hit.critical)for(const t of Object.keys(damage))damage[t]*=skill.criticalMultiplier??1.5;
  const mitigation=mitigateHit({damage,source:'attack',defender:target.defence,penetration:skill.penetration,blockRoll:rolls.block});
  const settlement=applyDamage(nextTarget,mitigation.damage,target.rules);
- return {performed:true,hit,mitigation,attacker:payment.state,target:settlement.state,dead:settlement.dead};
+ const ignite=!mitigation.blocked&&(hit.critical||rolls.ignite<(skill.igniteChance??0))?igniteFromPackets(packets,modifiers,context,hit.critical):null;
+ return {ignite:ignite?.rate>0?ignite:null,performed:true,hit,mitigation,attacker:payment.state,target:settlement.state,dead:settlement.dead};
 }
