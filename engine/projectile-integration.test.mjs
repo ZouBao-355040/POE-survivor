@@ -173,3 +173,58 @@ test('gem levels scale projectile trails, radiation and fire, cold and chaos gro
   assert.ok(Math.abs(rate(key,5)/rate(key,1)-1.14**4)<1e-9,key);
  }
 });
+test('Tornado Shot pierces before the aimed plane and bursts once per primary arrow',()=>{
+ const hook=rangerHooks({modifiers:mods,inventory:load(g('tornado-shot'),[g('greater-multiple-projectiles'),g('returning-projectiles')]),random:()=>.40});
+ const shot=hook.onFire(player,t,0);
+ assert.equal(shot.projectiles.length,5);
+ const between=target('between',2,0);
+ let world={player,enemies:[t,between],projectiles:shot.projectiles};
+ const hits=[],bursts=[];
+ for(let i=0;i<14;i++){
+  world=stepWorld(world,.02,{...hook,onFire:undefined,onImpact:(e,p)=>{hits.push([e.id,p.tornadoStage]);return e;}});
+  bursts.push(...world.fields.filter(f=>f.tornadoImpact&&f.start===world.time));
+ }
+ assert.equal(bursts.length,5);
+ assert.ok(bursts.every(f=>Math.abs(f.x-t.x)<1e-8));
+ assert.equal(new Set(bursts.map(f=>f.y.toFixed(6))).size,5);
+ assert.equal(hits.filter(([id,stage])=>id==='between'&&stage==='primary').length,1);
+ assert.equal(hits.filter(([id,stage])=>id==='a'&&stage==='secondary').length,4);
+ assert.ok(world.projectiles.every(p=>p.tornadoStage==='secondary'));
+ assert.equal(new Set(world.projectiles.map(p=>p.volley)).size,5);
+});
+test('Tornado secondary arrows share per-burst hit history but not primary history',()=>{
+ const hook=rangerHooks({modifiers:mods,inventory:load(g('tornado-shot'),[g('pierce')]),random:()=>.40});
+ const {projectile}=hook.onFire(player,t,0);
+ const at={...projectile,x:5,y:0,distanceTravelled:5,remainingRange:0};
+ const env={time:1,addField(){}};
+ const children=hook.onTerminate(at,null,env),again=hook.onTerminate(at,null,env);
+ assert.equal(children.length,3);
+ assert.ok(children.every(p=>p.x===5&&p.y===0&&p.distanceTravelled===5&&p.burst===0&&p.pierce===2));
+ assert.ok(children.every(p=>p.volley===children[0].volley));
+ assert.notEqual(children[0].volley,projectile.volley);
+ assert.notEqual(children[0].volley,again[0].volley);
+ assert.ok(children.some(p=>p.dx>0)&&children.some(p=>p.dx<0));
+});
+test('Cloudburst uses one non-damaging payload and applies extra count to the landing ring',()=>{
+ const active=activeGems.find(g=>g.sourceKey==='TornadoShotAltX');
+ const run=supports=>{
+  const hook=rangerHooks({modifiers:mods,inventory:load(active,supports),random:()=>.4});
+  const shot=hook.onFire(player,t,0);
+  assert.equal(shot.projectiles.length,1);
+  assert.equal(shot.projectile.tornadoStage,'payload');
+  const between=target('between',2,0);
+  let world={player,enemies:[between],projectiles:shot.projectiles},hits=[];
+  for(let i=0;i<30;i++){
+   world=stepWorld(world,.02,{...hook,onFire:undefined,onImpact:(e,p)=>{hits.push(p.tornadoStage);return e;}});
+   if(world.fields.some(f=>f.tornadoImpact)){
+    assert.ok(Math.abs(world.fields[0].x-t.x)<1e-8);
+    assert.ok(hits.every(stage=>stage==='secondary'));
+    assert.ok(world.projectiles.every(p=>p.tornadoStage==='secondary'));
+    return world.projectiles.length;
+   }
+  }
+  assert.fail('payload never landed');
+ };
+ assert.equal(run([]),9);
+ assert.equal(run([g('greater-multiple-projectiles')]),13);
+});

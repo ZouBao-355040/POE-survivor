@@ -1,15 +1,15 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.0';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.0';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.1';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.1';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.1';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs';
 import {gemPrice,purchaseGem,shopStock} from './engine/gem-shop.mjs';
-import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs';
+import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs?v=0.5.1';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience,resolveLevelChoice} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.0';
+import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.1';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,hillockLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,itemAffix} from './engine/town-services.mjs';
 
 const $=s=>document.querySelector(s);
@@ -358,7 +358,17 @@ function render(){
  for(let y=(-p.y*scale+h/2)%(scale*2);y<h;y+=scale*2){ctx.moveTo(0,y);ctx.lineTo(w,y);}
  ctx.stroke();
  for(const f of state.fields??[]){
-  const [x,y]=point(f);if(f.beamTo){const [bx,by]=point(f.beamTo);ctx.strokeStyle='#d8c9ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(bx,by);ctx.stroke();continue;}ctx.globalAlpha=f.visual?.34:.23;ctx.fillStyle=f.color??'#b7d879';ctx.beginPath();ctx.arc(x,y,(f.radius??1)*scale,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  const [x,y]=point(f);
+  if(f.tornadoImpact){
+   const t=Math.max(0,Math.min(1,(state.time-f.start)/f.duration));
+   ctx.save();ctx.globalAlpha=1-t;ctx.strokeStyle='#c8e5dc';ctx.lineWidth=2;
+   for(let i=0;i<3;i++){
+    const phase=i*Math.PI*2/3+t*4;
+    ctx.beginPath();ctx.arc(x,y,scale*(.25+t*.65),phase,phase+1.20);ctx.stroke();
+   }
+   ctx.restore();continue;
+  }
+  if(f.beamTo){const [bx,by]=point(f.beamTo);ctx.strokeStyle='#d8c9ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(bx,by);ctx.stroke();continue;}ctx.globalAlpha=f.visual?.34:.23;ctx.fillStyle=f.color??'#b7d879';ctx.beginPath();ctx.arc(x,y,(f.radius??1)*scale,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
  }
  for(const cast of state.enemyCasts??[]){
   const [x,y]=point(cast),r=cast.radius*scale;
@@ -378,7 +388,23 @@ function render(){
  for(const a of state.projectiles){
   if(a.delay>0)continue;
   const [x,y]=point(a);if(a.noCollision&&a.pulseEvery){ctx.globalAlpha=.17;dot(a,.9,a.color);ctx.globalAlpha=1;dot(a,.25,a.color);continue;}
-  ctx.strokeStyle=a.color??'#ffd18a';ctx.lineWidth=a.returning?1.4:2;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-a.dx*scale*.65,y-a.dy*scale*.65);ctx.stroke();
+  if(a.tornadoStage==='payload'){
+   const t=1-Math.min(1,a.remainingRange/Math.max(.001,a.flight));
+   const lift=Math.sin(Math.PI*t)*scale*1.75;
+   const landing={x:a.x+a.dx*a.remainingRange,y:a.y+a.dy*a.remainingRange};
+   const [lx,ly]=point(landing);
+   ctx.save();ctx.globalAlpha=.55;ctx.strokeStyle='#c8e5dc';ctx.lineWidth=1.4;
+   ctx.beginPath();ctx.ellipse(lx,ly,scale*.34,scale*.19,0,0,Math.PI*2);ctx.stroke();
+   ctx.globalAlpha=1;ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(x,y-lift);
+   ctx.lineTo(x-a.dx*scale*.48,y-lift-a.dy*scale*.48+(2*t-1)*scale*-.44);ctx.stroke();ctx.restore();continue;
+  }
+  const secondary=a.tornadoStage==='secondary',primary=a.tornadoStage==='primary';
+  const trail=primary?1.00:secondary?Math.min(.76,a.age*a.speed):.65;
+  ctx.save();
+  if(secondary)ctx.globalAlpha=.22+.78*Math.min(1,a.remainingRange/(a.speed*.15));
+  ctx.strokeStyle=secondary?'#c8e5dc':a.color??'#ffd18a';
+  ctx.lineWidth=a.returning?1.4:primary?3:secondary?1.7:2;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-a.dx*scale*trail,y-a.dy*scale*trail);ctx.stroke();
+  ctx.restore();
   if(a.skill.source==='spell')dot(a,.15,a.color);
  }
  dot(p,.43,p.life<=0?'#685761':'#9ac7a2');

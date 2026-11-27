@@ -1,5 +1,5 @@
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.0';
+import {stepWorld} from './game-loop.mjs?v=0.5.1';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};

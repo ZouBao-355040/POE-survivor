@@ -61,7 +61,7 @@ export function compileAttack(active,weapon,supports,modifiers,random,context={}
   cost:Math.max(0,Math.floor(modifiers.calculate((active.cost??0)*product('costMultiplier'),'manaCost',ctx))),
   increasedProjectileSpeed:sum('increasedProjectileSpeed'),projectileSpeedMultiplier:product('projectileSpeedMultiplier'),
   increasedProjectileDamage:sum('increasedProjectileDamage'),additionalProjectiles:sum('additionalProjectiles'),
-  pierce:active.noPierce?0:(active.pierce??0)+sum('pierce'),fork:sum('fork'),chain:Math.floor(((active.chain??0)+sum('chain'))*product('chainMultiplier')),
+  pierce:active.noPierce?0:(active.pierce??0)+sum('pierce'),extraPierce:active.noPierce?0:sum('pierce'),fork:sum('fork'),chain:Math.floor(((active.chain??0)+sum('chain'))*product('chainMultiplier')),
   canReturn:active.canReturn||any('canReturn'),split:(active.split??0)+(active.splitCountInstead?sum('additionalProjectiles'):0),
   extraForkChance:sum('extraForkChance'),returnMultiplier:product('returnMultiplier'),
   echo:sum('echo'),echoRate:product('echoRate'),echoLast:product('echoLast'),

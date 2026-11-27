@@ -1,4 +1,4 @@
-import {compileAttack} from './skill.mjs';
+import {compileAttack} from './skill.mjs?v=0.5.1';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
@@ -134,6 +134,11 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    const heading=bearing(source,aim),rangeToTarget=distance(source,aim);
    const seed={...template,x:source.x,y:source.y,launchedX:source.x,launchedY:source.y,heading,dx:Math.cos(heading),dy:Math.sin(heading),remainingRange:Math.min(rangeToTarget,maxFlight)};
    if(skill.nova)return [{...seed,canReturn:false,noCollision:true,nova:count,pulseEvery:0}];
+   if(chosen.tornado==='payload'){
+    const flight=seed.remainingRange,speed=seed.speed*.68;
+    return [{...seed,speed,pierce:0,split:0,fork:0,chain:0,canReturn:false,noCollision:true,
+      tornadoStage:'payload',flight,burst:Math.max(1,Math.min(48,chosen.payloadArrows+count-1))}];
+   }
    if(chosen.radialLaunch)return radial(seed,count,maxFlight,heading).map((q,i)=>({...q,delay:(chosen.windup??0)+(chosen.spiral?i*.036:0)}));
    if(chosen.rain)return Array.from({length:count},(_,i)=>{
     const lane=i-(count-1)/2,theta=i*2.39996;
@@ -150,6 +155,13 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
     const flight=chosen.lob?Math.min(maxFlight,Math.max(1,targetRange*(.82+random()*.36))):targetRange;
     const alternate=chosen.seekEach?worldEnemies.filter(e=>e.life>0)[i%Math.max(worldEnemies.filter(e=>e.life>0).length,1)]:null;
     if(alternate){const angle=bearing(source,alternate);pattern.dx=Math.cos(angle);pattern.dy=Math.sin(angle);}
+    if(chosen.tornado==='primary'){
+     // Intersect each arrow with the same aiming plane rather than a circular range.
+     const forward=Math.max(.1,pattern.dx*Math.cos(heading)+pattern.dy*Math.sin(heading));
+     return {...seed,...pattern,tornadoStage:'primary',split:0,fork:0,chain:0,canReturn:false,pierce:Infinity,
+      heading:Math.atan2(pattern.dy,pattern.dx),remainingRange:Math.min(maxFlight,rangeToTarget/forward),
+      volley:groups.get(group),returnVolley:returnGroups.get(group)};
+    }
     return {...seed,...pattern,heading:Math.atan2(pattern.dy,pattern.dx),delay:pattern.delay+(chosen.windup??0),remainingRange:flight,
       volley:chosen.allowShotgun?undefined:groups.get(group),returnVolley:returnGroups.get(group)};
    });
@@ -277,6 +289,18 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const a=p.skill.active;
   if(p.nova)return radial({...p,noCollision:false,canReturn:p.skill.canReturn},p.nova,p.speed*(a.projectileLifetime??.85));
   if(a.splitOnEnd&&!target&&p.split>0&&!p.returning)return radial(p,p.split,p.speed*.26,Math.atan2(p.dy,p.dx)).map(q=>({...q,split:0}));
+  if(p.tornadoStage&&p.burst){
+   const payload=p.tornadoStage==='payload',duration=.30;
+   env.addField({x:p.x,y:p.y,tornadoImpact:true,color:p.color,visual:true,start:env.time,until:env.time+duration,duration});
+   const phase=random()*TAU,gap=TAU/p.burst;
+   const speed=payload?p.speed/.68:p.speed;
+   return radial({...p,speed,fragment:true,tornadoStage:'secondary',pierce:Number.isFinite(p.skill.pierce)?p.skill.pierce:
+    p.skill.extraPierce,fork:p.skill.fork,chain:p.skill.chain,split:p.skill.split,canReturn:p.skill.canReturn},p.burst,speed*.34,phase)
+    .map((q,i)=>{
+     const heading=phase+(i+(payload?0:(random()-.5)*.56))*gap;
+     return {...q,heading,dx:Math.cos(heading),dy:Math.sin(heading),distanceTravelled:p.distanceTravelled,returnVolley:q.volley};
+    });
+  }
   if(p.burst)return radial(p,p.burst,p.speed*.34,Math.atan2(p.dy,p.dx)+.25);
   if(a.explosion&&!a.fuseGround)detonate(p,env,null,1,a.explosion);
   if(a.fuseGround&&!a.ground)env.addField({...p,radius:a.explosion,groundBomb:true,next:env.time+.32,until:env.time+.36,pulseEvery:1});

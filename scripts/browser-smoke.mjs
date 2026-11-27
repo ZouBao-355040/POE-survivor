@@ -10,13 +10,23 @@ async function verify(viewport,mobile){
  page.on('pageerror',e=>failures.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('404'))failures.push(m.text());});
  page.on('response',r=>{if(r.status()>=400&&/\.mjs(\?|$)|\.css(\?|$)/.test(r.url()))failures.push(r.status()+' '+r.url());});
- await page.addInitScript(()=>{Math.random=()=>.40;});
+ await page.addInitScript(()=>{
+  Math.random=()=>.40;
+  window.tornadoDraw={swirls:0,landingMarkers:0};
+  for(const [method,stat] of [['arc','swirls'],['ellipse','landingMarkers']]){
+   const original=CanvasRenderingContext2D.prototype[method];
+   CanvasRenderingContext2D.prototype[method]=function(...args){
+    if(this.strokeStyle==='#c8e5dc')window.tornadoDraw[stat]++;
+    return original.apply(this,args);
+   };
+  }
+ });
  await page.clock.install();
  await page.goto(entry,{waitUntil:'networkidle'});
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.0/);
+ assert.match(await text('.brand'),/v0\.5\.1/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
@@ -145,8 +155,23 @@ async function verify(viewport,mobile){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   assert.notEqual(await canvas.evaluate(n=>n.toDataURL()),prev);
  }
+ for(const [name,button,payload] of [
+  ['Tornado Shot',/^龍捲射擊 每支主箭/,false],
+  ['Cloudburst',/^龍捲射擊．雲爆 單支載箭/,true]
+ ]){
+  await btn('寶石').click();
+  await btn('技能試射',bag).click();
+  await bag.getByRole('searchbox').fill(name);
+  await page.evaluate(()=>{window.tornadoDraw={swirls:0,landingMarkers:0};});
+  await btn(button,bag).click();
+  await page.clock.runFor(650);
+  assert.match(await text('#hint'),/^龍捲射擊/);
+  const draw=await page.evaluate(()=>window.tornadoDraw);
+  assert.ok(draw.swirls>=3,'actual canvas should render the burst');
+  assert.equal(draw.landingMarkers>0,payload,'only Cloudburst marks an airborne landing');
+ }
  assert.deepEqual(failures,[]);
- console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取與出鎮通過。');
+ console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、出鎮與兩種龍捲射擊通過。');
  await page.close();
 }
 try{
