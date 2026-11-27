@@ -1,10 +1,21 @@
 import {stepWorld} from './engine/game-loop.mjs';
 import {rangerHooks} from './engine/ranger.mjs';
 import {ModifierStore} from './engine/modifiers.mjs';
+import {GemInventory} from './engine/gem-inventory.mjs';
+import {burningArrow} from './engine/starter-data.mjs';
+import {momentumSupport} from './engine/momentum.mjs';
+let inventory;
+const panel=document.createElement('section');panel.style.cssText='position:fixed;inset:12% 5%;overflow:auto;background:#20272d;padding:16px;border:1px solid #99845e;z-index:5';panel.hidden=true;document.body.append(panel);
+const toggle=document.createElement('button');toggle.textContent='寶石';document.querySelector('header').append(toggle);toggle.onclick=()=>{panel.hidden=!panel.hidden;renderGems();};
+let picked=null;
+function renderGems(){panel.replaceChildren();const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>panel.hidden=true;panel.append(close);const title=document.createElement('p');title.textContent='選取持有寶石，再點擊插槽裝備。';panel.append(title);
+for(const [id,g] of inventory.owned){const b=document.createElement('button');b.textContent=(picked===id?'✓ ':'')+id;b.onclick=()=>{picked=id;renderGems();};panel.append(b);}
+for(const [group,slots] of Object.entries(inventory.board.groups)){const row=document.createElement('p');row.textContent=({weapon:'武器',body:'胸甲',helmet:'頭盔',gloves:'手套',boots:'鞋子'})[group]+' ';slots.forEach((g,i)=>{const b=document.createElement('button');b.textContent=g?g.id:'○';b.onclick=()=>{if(picked){inventory.equip(picked,group,i);picked=null;}else if(g)inventory.unequip(group,i);renderGems();};row.append(b);});panel.append(row);}
+const select=document.createElement('p');select.textContent='目前技能：'+(inventory.selected??'普通攻擊')+' ';for(const g of Object.values(inventory.board.groups).flat().filter(g=>g?.kind==='active')){const b=document.createElement('button');b.textContent=g.id;b.onclick=()=>{inventory.select(g.instanceId);renderGems();};select.append(b);}panel.append(select);}
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),status=document.querySelector('#status'),reward=document.querySelector('#reward');
 const modifiers=new ModifierStore(),enemyModifiers=new ModifierStore();
 let hooks,state,dir={x:0,y:0},origin=null,last=performance.now(),acc=0;
-function reset(){hooks=rangerHooks({modifiers});state={player:{x:0,y:0,speed:4,attackRange:10,life:57,maximumLife:57,mana:47,maximumMana:47,energyShield:0,accuracy:66,evasion:15,defence:{}},enemies:[],projectiles:[],progression:{level:1}};reward.hidden=true;}
+function reset(){inventory=new GemInventory();inventory.acquire(burningArrow);inventory.acquire(momentumSupport);inventory.equip(burningArrow.id,'weapon',0);inventory.equip(momentumSupport.id,'weapon',1);inventory.select(burningArrow.id);picked=null;panel.hidden=true;hooks=rangerHooks({modifiers,inventory});state={player:{x:0,y:0,speed:4,attackRange:10,life:57,maximumLife:57,mana:47,maximumMana:47,energyShield:0,accuracy:66,evasion:15,defence:{}},enemies:[],projectiles:[],progression:{level:1}};reward.hidden=true;}
 reset();
 const keys=new Set();addEventListener('keydown',e=>keys.add(e.key));addEventListener('keyup',e=>keys.delete(e.key));
 canvas.onpointerdown=e=>{origin={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);};
