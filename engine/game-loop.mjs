@@ -1,3 +1,4 @@
+import {collectGold} from './gem-shop.mjs';
 import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs';
 import {moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs';
@@ -39,7 +40,15 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  const target=nearestEnemy(player,enemies,player.attackRange??10);
  if(player.life>0&&cooldown===0&&target&&onFire){const shot=onFire(player,target,time,enemies,env);if(shot){player=shot.player??player;projectiles.push(...(shot.projectiles??[shot.projectile]));cooldown=shot.cooldown;events.push({type:'fire',target:target.id,skill:shot.skill});}}
  let progression=state.progression,flaskCharges=0;
- for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;events.push({type:'kill',target:e.id,experience:e.experienceReward??0});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
+ const dropped=[];
+ const economy=Number.isSafeInteger(state.gold)&&!state.practice;
+ for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;if(economy&&player.life>0)dropped.push({x:e.x,y:e.y,amount:e.goldReward??1});events.push({type:'kill',target:e.id,experience:e.experienceReward??0});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
  if(flasks){const result=autoFlasks(player,flasks,flaskCharges);flasks=result.flasks;for(const resource of result.used)events.push({type:'flask',resource});}
- return {...state,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,time:time+dt,nextSpawn,nextId,cooldown,events};
+ let wallet={};
+ if(economy&&player.life>0){
+  const collected=collectGold(player,state.goldDrops??[],dropped,{all:progression?.pendingChoices>0});
+  wallet={gold:state.gold+collected.amount,goldDrops:collected.remaining};
+  if(collected.amount>0)events.push({type:'gold',amount:collected.amount});
+ }
+ return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,time:time+dt,nextSpawn,nextId,cooldown,events};
 }

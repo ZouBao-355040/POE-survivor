@@ -1,0 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {gemPrice,shopStock,purchaseGem,collectGold} from './gem-shop.mjs';
+import {stepWorld} from './game-loop.mjs';
+import {resolveLevelChoice} from './progression.mjs';
+const split={id:'split-arrow',kind:'active',tags:['attack']};
+const spell={id:'spell',kind:'active',tags:['spell']};
+const attack={id:'attack-support',kind:'support',requiresAll:['attack']};
+const support={id:'spell-support',kind:'support',requiresAll:['spell']};
+const catalog=[split,spell,attack,support];
+test('shop lists all unowned stock deterministically and can filter compatible supports',()=>{
+ assert.deepEqual(shopStock(catalog,['split-arrow'],'active'),[spell]);
+ assert.deepEqual(shopStock(catalog,[],'support',split),[attack]);
+ assert.deepEqual(shopStock(catalog,[],'support'),[attack,support]);
+});
+test('shop guards the balance, ownership and level window without consuming the window',()=>{
+ const progression={level:2,pendingChoices:1},context={progression,gold:6,catalog,ownedIds:[]};
+ const first=purchaseGem(context,'split-arrow');
+ assert.equal(first.gold,3);
+ assert.equal(first.gem,split);
+ const second=purchaseGem({...context,gold:first.gold,ownedIds:[first.gem.id]},'attack-support');
+ assert.equal(second.gold,1);
+ assert.throws(()=>purchaseGem({...context,gold:1},split.id),/金幣不足/);
+ assert.throws(()=>purchaseGem({...context,ownedIds:[split.id]},split.id),/已擁有/);
+ assert.throws(()=>purchaseGem({...context,progression:resolveLevelChoice(progression)},split.id),/商店尚未開放/);
+ assert.equal(gemPrice({kind:'active',tags:['vaal']}),6);
+});
+test('gold drops exist on the ground, collect near the player, and sweep before a level shop',()=>{
+ const player={x:0,y:0,speed:1,life:100,maximumLife:100,mana:100,maximumMana:100};
+ const far={id:'far',x:9,y:0,life:0,experienceReward:1};
+ const state={player,gold:0,goldDrops:[],enemies:[far],projectiles:[]};
+ const first=stepWorld(state,.02,{experienceRequired:()=>2});
+ assert.equal(first.gold,0);
+ assert.deepEqual(first.goldDrops,[{x:9,y:0,amount:1}]);
+ const close=collectGold({x:8,y:0},first.goldDrops,[]);
+ assert.equal(close.amount,1);
+ const second=stepWorld({...first,enemies:[far]},.02,{experienceRequired:()=>2});
+ assert.equal(second.progression.pendingChoices,1);
+ assert.equal(second.gold,2);
+ assert.deepEqual(second.goldDrops,[]);
+ assert.equal(stepWorld(second,.02).gold,2);
+ assert.equal(stepWorld({...state,practice:true},.02).gold,0);
+});

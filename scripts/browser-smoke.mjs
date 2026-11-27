@@ -10,10 +10,11 @@ async function verify(viewport,mobile){
  page.on('pageerror',e=>failures.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('404'))failures.push(m.text());});
  page.on('response',r=>{if(r.status()>=400&&/\.mjs(\?|$)|\.css(\?|$)/.test(r.url()))failures.push(r.status()+' '+r.url());});
+ await page.addInitScript(()=>{Math.random=()=>.20;});
  await page.clock.install();
  await page.goto(entry,{waitUntil:'networkidle'});
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('等級'));
- assert.match(await page.locator('.brand').innerText(),/v0\.3\.2/);
+ assert.match(await page.locator('.brand').innerText(),/v0\.3\.3/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  await page.clock.runFor(2300);
  assert.match(await page.locator('#flask-life').innerText(),/^紅水 21\/21$/);
@@ -65,8 +66,20 @@ async function verify(viewport,mobile){
  await page.clock.runFor(300);
  assert.match(await page.locator('#hint').innerText(),/燃燒箭矢/);
  assert.doesNotMatch(await page.locator('#status').innerText(),/試射場/);
+ const shop=page.getByRole('region',{name:'升級寶石商店'});
+ for(let i=0;i<8&&!await shop.isVisible();i++)await page.clock.runFor(3000);
+ assert.ok(await shop.isVisible(),'level up must open the shop');
+ const beforeCoins=Number((await page.locator('#shop-wallet').innerText()).split('：')[1]);
+ assert.ok(beforeCoins>=4);
+ await shop.getByRole('searchbox',{name:'搜尋商店寶石'}).fill('裂化箭矢');
+ await shop.getByRole('button',{name:/^裂化箭矢 · 3 金幣/}).click();
+ assert.equal(await page.locator('#shop-wallet').innerText(),'持有金幣：'+(beforeCoins-3));
+ await shop.getByRole('button',{name:'繼續戰鬥',exact:true}).click();
+ await page.getByRole('button',{name:'寶石',exact:true}).click();
+ assert.ok(await page.getByRole('dialog').getByRole('button',{name:/^裂化箭矢 · 等級 1/}).isVisible());
+ await page.getByRole('button',{name:'關閉',exact:true}).click();
  assert.deepEqual(failures,[]);
- console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：載入、戰鬥暫停、圖鑑、試射、裝備、移動、重開通過。');
+ console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：載入、戰鬥暫停、圖鑑、試射、裝備、移動、重開、拾金及商店通過。');
  await page.close();
 }
 try{

@@ -1,9 +1,9 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.3.2';
-import {stepWorld} from './engine/game-loop.mjs?v=0.3.2';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.3.3';
+import {stepWorld} from './engine/game-loop.mjs?v=0.3.3';
 import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs';
-import {beginReward,rewardOptions} from './engine/rewards.mjs';
+import {gemPrice,purchaseGem,shopStock} from './engine/gem-shop.mjs';
 import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
@@ -30,6 +30,7 @@ function card(g,fn,selected=false,training=false){
  return b;
 }
 let inventory,hooks,state,picked=null,tab='owned',search='',filter='all';
+let shopTab='active',shopSearch='',shopCompatible=true;
 let dir={x:0,y:0},origin=null,last=performance.now(),acc=0,toastUntil=0;
 const keys=new Set();
 function clearInput(){keys.clear();origin=null;dir={x:0,y:0};}
@@ -40,9 +41,9 @@ function reset(){
   inventory.acquire(gemById.get(id)); inventory.equip(id,'weapon',i);
  }
  inventory.select('burning-arrow');picked=null;tab='owned';if(panel.open)panel.close();
- clearInput();acc=0;hooks=rangerHooks({modifiers,inventory});
+ clearInput();acc=0;shopTab='active';shopSearch='';shopCompatible=true;hooks=rangerHooks({modifiers,inventory});
  state={player:{x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}},
-  enemies:[],projectiles:[],flasks:starterFlasks(),time:0,progression:{level:1},kills:0};
+  enemies:[],projectiles:[],flasks:starterFlasks(),gold:0,goldDrops:[],time:0,progression:{level:1},kills:0};
  $('#toast').textContent='';reward.hidden=true;
 }
 function closeGems(){if(panel.open)panel.close();state={...state,paused:false};acc=0;clearInput();toggle.focus();}
@@ -117,15 +118,58 @@ function renderLibrary(){
  if(tab==='library')for(const [k,n] of [['all','全部'],['active','主動'],['support','輔助'],['enabled','已接入']])toolbar.append(button(n,()=>{filter=k;for(const b of toolbar.querySelectorAll('button'))b.setAttribute('aria-pressed',b.textContent===n);refresh();},{selected:filter===k}));
  input.addEventListener('input',()=>{search=input.value;refresh();});panel.append(toolbar,summary,result);refresh();
 }
-function chooseReward(){const p=state.progression;reward.replaceChildren(heading('等級 '+p.level+' · 選擇寶石'));
- if(p.reward){for(const g of p.reward.options)reward.append(card(g,()=>{
-  state.progression=inventory.claim(p,g.id);
-  if(state.progression.pendingChoices>0)chooseReward();else reward.hidden=true;
-  notify('已取得 '+g.name+'，可從寶石背包裝備。');
- },false,true));return;}
- const config={catalog,board:inventory.board,ownedIds:inventory.ownedIds()};
- for(const [kind,label] of [['active','主動寶石'],['support','相容輔助']])if(rewardOptions({...config,kind}).length)reward.append(button(label,()=>{state.progression=beginReward(p,kind,config);chooseReward();}));
- reward.append(button('略過，繼續戰鬥',()=>{state.progression=resolveLevelChoice(p);if(state.progression.pendingChoices>0)chooseReward();else reward.hidden=true;}));
+function renderShop(){
+ const p=state.progression;
+ reward.replaceChildren();
+ const top=div('','shop-top');
+ top.append(heading('等級 '+p.level+' · 寶石商店'));
+ const wallet=div('持有金幣：'+state.gold,'shop-wallet');wallet.id='shop-wallet';
+ top.append(wallet);
+ top.append(div('選你要的寶石。可以買多顆，也可以把金幣留到下次。','muted'));
+ const tools=div('','toolbar');
+ const chosen=inventory.current()?.active;
+ const filter=button(shopCompatible?'只看目前技能相容':'顯示全部輔助',()=>{
+  shopCompatible=!shopCompatible;filter.textContent=shopCompatible?'只看目前技能相容':'顯示全部輔助';filter.setAttribute('aria-pressed',shopCompatible);refresh();
+ },{selected:shopCompatible});
+ const activeBtn=button('主動技能',()=>changeTab('active'),{selected:shopTab==='active'});
+ const supportBtn=button('輔助寶石',()=>changeTab('support'),{selected:shopTab==='support'});
+ const input=document.createElement('input');input.type='search';input.placeholder='搜尋寶石';input.setAttribute('aria-label','搜尋商店寶石');input.value=shopSearch;
+ const results=div('','library-list shop-list');
+ const count=div('','muted');
+ const done=button('繼續戰鬥',()=>{
+  state.progression=resolveLevelChoice(p);
+  if(state.progression.pendingChoices>0)renderShop();else reward.hidden=true;
+ });
+ function changeTab(kind){
+  shopTab=kind;shopSearch='';input.value='';
+  activeBtn.setAttribute('aria-pressed',kind==='active');supportBtn.setAttribute('aria-pressed',kind==='support');
+  filter.hidden=kind!=='support'||!chosen;refresh();
+ }
+ function refresh(){
+  const active=shopTab==='support'&&shopCompatible?chosen:null;
+  const q=shopSearch.trim().toLowerCase();
+  const offers=shopStock(catalog,inventory.ownedIds(),shopTab,active).filter(g=>!q||g.name.toLowerCase().includes(q)||g.id.includes(q.replaceAll(' ','-')));
+  count.textContent=offers.length?offers.length+' 顆可選寶石':'沒有符合條件的未持有寶石。';
+  results.replaceChildren();
+  for(const g of offers){
+   const cost=gemPrice(g);
+   const item=card({...g,name:g.name+' · '+cost+' 金幣'},()=>{
+    const bought=purchaseGem({progression:state.progression,gold:state.gold,catalog,ownedIds:inventory.ownedIds()},g.id);
+    inventory.acquire(bought.gem);
+    state.gold=bought.gold;
+    wallet.textContent='持有金幣：'+state.gold;
+    notify('已購買 '+g.name+'，可在寶石背包插上並選為目前技能。');
+    refresh();
+   },false,true);
+   item.classList.add('shop-item');item.disabled=state.gold<cost;results.append(item);
+  }
+ }
+ input.addEventListener('input',()=>{shopSearch=input.value;refresh();});
+ filter.hidden=shopTab!=='support'||!chosen;
+ tools.append(activeBtn,supportBtn,filter,input);
+ top.append(tools,count);
+ reward.append(top,results,done);
+ refresh();
 }
 reset();
 $('#restart').onclick=reset;
@@ -172,6 +216,10 @@ function render(){
  for(const f of state.fields??[]){
   const [x,y]=point(f);if(f.beamTo){const [bx,by]=point(f.beamTo);ctx.strokeStyle='#d8c9ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(bx,by);ctx.stroke();continue;}ctx.globalAlpha=f.visual?.34:.23;ctx.fillStyle=f.color??'#b7d879';ctx.beginPath();ctx.arc(x,y,(f.radius??1)*scale,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
  }
+ for(const loot of state.goldDrops??[]){
+  const [x,y]=point(loot);ctx.fillStyle='#f9d381';ctx.strokeStyle='#62461c';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x+5,y);ctx.lineTo(x,y+5);ctx.lineTo(x-5,y);ctx.closePath();ctx.fill();ctx.stroke();
+ }
  for(const e of state.enemies){dot(e,e.radius??.35,e.frozenUntil>state.time?'#b2e9ff':e.ignites?.length?'#e88939':e.dots?.length?'#aecc71':'#ad5d63');const [x,y]=point(e);ctx.fillStyle='#d98187';ctx.fillRect(x-8,y-10,16*Math.max(0,e.life/e.maximumLife),3);}
  for(const a of state.projectiles){
   if(a.delay>0)continue;
@@ -192,11 +240,12 @@ function render(){
  }
  const n=Math.floor(state.time??0);
  status.textContent=(state.practice?'試射場 · ':'')+'等級 '+state.progression.level+' · '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')+' · 擊殺 '+state.kills+(state.dead?' · 已死亡':'');
+ $('#gold-hud').textContent='金幣 '+state.gold;
  const selected=inventory.current()?.active;
  $('#hint').textContent=(selected?selected.name+' 等級 '+selected.level:'普通攻擊')+' · 拖曳或 WASD 移動';
  if(state.time>=toastUntil)$('#toast').textContent='';
  const showReward=state.progression.pendingChoices>0&&!state.dead;
- if(showReward&&reward.hidden)chooseReward();
+ if(showReward&&reward.hidden)renderShop();
  reward.hidden=!showReward;
 }
 function frame(now){
