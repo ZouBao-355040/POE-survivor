@@ -1,5 +1,6 @@
-import {rows,starts} from './passive-tree-data.mjs?v=0.5.9';
-import {compilePassives,keystones} from './passive-effects.mjs?v=0.5.9';
+import {resolveCharacterClass} from './character.mjs?v=0.5.10';
+import {rows,starts} from './passive-tree-data.mjs?v=0.5.10';
+import {compilePassives,keystones} from './passive-effects.mjs?v=0.5.10';
 export {starts};
 export const sourceUrl='https://github.com/grindinggear/skilltree-export/blob/3.30.0/data.json';
 export const classNames=Object.freeze({Ranger:'遊俠',Marauder:'野蠻人',Witch:'女巫',Duelist:'決鬥者',Templar:'聖堂武僧',Shadow:'暗影刺客',Scion:'貴族'});
@@ -20,7 +21,7 @@ export const nodes=new Map(rows.map(([id,original,kind,x,y,group,neighbors,lines
  return [id,{id,name,original,kind,x,y,group,neighbors,key:key?.[0],...compiled,effects:key?.[2]??compiled.effects,
   implemented:kind==='keystone'?!!key:kind==='mastery'?effects.some(e=>e.available):compiled.available,options:effects}];
 }));
-export const classStart=p=>Object.hasOwn(starts,p?.passiveClass)?starts[p.passiveClass]:starts.Ranger;
+export const classStart=p=>starts[resolveCharacterClass(p)];
 export function points(p){
  const earned=Number.isSafeInteger(p?.passivePoints)?Math.max(0,p.passivePoints):0;
  const spent=new Set((p?.talents??[]).map(Number).filter(id=>nodes.has(id)&&nodes.get(id).kind!=='start')).size;

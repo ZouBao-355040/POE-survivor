@@ -1,5 +1,16 @@
 import {ModifierStore} from './modifiers.mjs';
 export const classAttributes=Object.freeze({Ranger:[14,32,14],Marauder:[32,14,14],Witch:[14,14,32],Duelist:[23,23,14],Templar:[23,14,23],Shadow:[14,23,23],Scion:[20,20,20]});
+// A playable profile owns both starter equipment and the starting point of the passive tree.
+export const campaignCharacter=Object.freeze({
+ className:'Ranger',name:'遊俠',starterGems:Object.freeze(['burning-arrow','momentum'])
+});
+export function newCampaignProgression(){
+ return {level:1,characterClass:campaignCharacter.className};
+}
+export function resolveCharacterClass(progression){
+ const requested=progression?.characterClass??progression?.passiveClass;
+ return Object.hasOwn(classAttributes,requested)?requested:campaignCharacter.className;
+}
 // Baseline PoE 1 assumptions; patch-specific rounding still requires verification.
 export class Character {
  constructor(className='Ranger',level=1){if(!classAttributes[className])throw new RangeError('Unknown class');this.className=className;this.level=level;this.modifiers=new ModifierStore();}

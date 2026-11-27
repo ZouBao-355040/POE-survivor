@@ -1,6 +1,6 @@
 import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.9';
-import {classAttributes} from './character.mjs';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.10';
+import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {resourceKeystones} from './keystones.mjs';
 
 const baseline=['life','mana','es','evasion','accuracy','armour','move','manaRegen','lifeRegen','lifeRegenPct','manaRegenFlat',
@@ -11,7 +11,7 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
  const gear=equippedStats(town),{keys,mods,lifeMasteries}=selectedPassives(progression);
  const sum=(stat,kind='flat')=>mods.reduce((a,m)=>a+(m.stat===stat&&m.kind===kind?m.value:0),0);
  const up=s=>sum(s,'increased');
- const [str,dex,int]=Object.hasOwn(classAttributes,progression?.passiveClass)?classAttributes[progression.passiveClass]:classAttributes.Ranger;
+ const [str,dex,int]=classAttributes[resolveCharacterClass(progression)];
  const strength=str+sum('strength'), dexterity=dex+sum('dexterity'), intelligence=int+sum('intelligence');
  const lifeAffix=town.gear.find(i=>i.id===town.equipped.body)?.affixes?.some(a=>a.key==='life');
  const passiveMods=mods.filter(m=>!baseline.includes(m.stat)&&!/^res:|^maxres:/.test(m.stat)).map(m=>{

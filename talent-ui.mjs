@@ -1,4 +1,5 @@
-import {nodes,points,treeStatus,tracePath,classNames,sourceUrl} from './engine/passive-tree.mjs?v=0.5.9';
+import {resolveCharacterClass} from './engine/character.mjs?v=0.5.10';
+import {nodes,points,treeStatus,tracePath,classNames,sourceUrl} from './engine/passive-tree.mjs?v=0.5.10';
 
 export function renderTalentTree(container,{progression,onAllocate}){
  const doc=container.ownerDocument;
@@ -132,7 +133,7 @@ export function renderTalentTree(container,{progression,onAllocate}){
  function refresh(){
   tree=treeStatus(progression);if(selected)path=tracePath(progression,selected);
   const {earned,spent,remaining}=points(progression);
-  status.textContent=(classNames[progression.passiveClass]??classNames.Ranger)+' · 剩餘 '+remaining+' 點（已配 '+spent+'／累計 '+earned+'）';
+  status.textContent=classNames[resolveCharacterClass(progression)]+' · 剩餘 '+remaining+' 點（已配 '+spent+'／累計 '+earned+'）';
   renderResults();renderDetails();refreshSize();
  }
  search.oninput=filter.onchange=renderResults;

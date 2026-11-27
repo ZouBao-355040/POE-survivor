@@ -26,8 +26,10 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.9/);
+ assert.match(await text('.brand'),/v0\.5\.10/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
+ assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
+ assert.equal(await text('#campaign-character'),'遊俠');
  await btn('跳過教學').click();
  await page.clock.runFor(250);
  assert.match(await text('#hint'),/^普通攻擊/);
@@ -45,6 +47,8 @@ async function verify(viewport,mobile){
  await btn('選單').click();
  await btn('重新開始').click();
  await btn('確認重開本局').click();
+ assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
+ assert.equal(await text('#campaign-character'),'遊俠');
  await btn('要教學').click();
  const bag=page.locator('#gem-panel');
  assert.match(await bag.innerText(),/步驟 1／3/);
@@ -93,6 +97,8 @@ async function verify(viewport,mobile){
  const inTown=await snapshot();await page.clock.runFor(1800);assert.deepEqual(await snapshot(),inTown);
  const services=page.locator('#town-dialog');
  await btn(/^天賦( \d+)?$/).click();
+ assert.equal(await services.locator('[data-talent-id="50459"]').getAttribute('data-talent-state'),'start');
+ assert.match(await services.locator('.talent-points').innerText(),/^遊俠/);
  const talent=services.locator('[data-talent-id="39821"]');
  assert.equal(await talent.getAttribute('data-talent-state'),'available');
  await talent.click();
@@ -104,6 +110,11 @@ async function verify(viewport,mobile){
  assert.match(await services.locator('.talent-points').innerText(),/剩餘 0 點/);
  assert.equal(await services.locator('[data-talent-id="2094"]').getAttribute('data-talent-state'),'locked');
  const talentSearch=services.getByRole('searchbox',{name:'搜尋天賦'});
+ await talentSearch.fill('54447');
+ const otherStart=services.locator('[data-talent-id="54447"]');
+ assert.equal(await otherStart.getAttribute('data-talent-state'),'locked');
+ await otherStart.click();
+ assert.equal(await services.locator('[data-talent-allocate="54447"]').isEnabled(),false);
  await services.getByLabel('篩選天賦').selectOption('keystone');
  await talentSearch.fill('精準技巧');
  await services.locator('[data-talent-id="63620"]').click();
@@ -324,7 +335,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.9',async route=>{
+ await page.route('**/play.mjs?v=0.5.10',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
