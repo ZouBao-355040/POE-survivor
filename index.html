@@ -1,25 +1,27 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>流亡倖存者</title><link rel="stylesheet" href="./game.css?v=0.4.2">
+<title>流亡倖存者</title><link rel="stylesheet" href="./game.css?v=0.5.0">
 </head><body>
 <canvas aria-label="流亡倖存者戰場"></canvas>
-<header><div class="brand">流亡倖存者 <small>v0.4.2</small></div><div id="status">載入引擎中…</div><button id="gems" aria-haspopup="dialog">寶石</button><button id="return-town" hidden>回獅眼守望</button><button id="restart">重開</button></header>
+<header><div class="brand">流亡倖存者 <small>v0.5.0</small></div><div id="status">載入引擎中…</div><button id="gems" aria-haspopup="dialog">寶石</button><button id="menu-open" aria-haspopup="dialog">選單</button></header>
 <section class="meters" aria-label="角色資源"><div class="meter-side"><label>生命<progress id="life" max="1" value="1"></progress><span id="life-num"></span></label><div id="flask-life" class="flask flask-life" title="小型生命藥劑 · 充能滿時使用">紅水 21/21</div></div><div class="meter-side"><label>魔力<progress id="mana" max="1" value="1"></progress><span id="mana-num"></span></label><div id="flask-mana" class="flask flask-mana" title="小型魔力藥劑 · 充能滿時使用">藍水 24/24</div></div></section>
 <div id="gold-hud" aria-label="持有金幣">金幣 0</div>
 <div id="hint">拖曳或 WASD 移動 · 自動攻擊</div>
 <div id="toast" role="status"></div>
 <section id="reward" class="modal" aria-label="升級寶石商店" hidden></section>
 <div id="zone-objective" hidden></div>
+<section id="boss-hud" aria-label="頭目生命" hidden><div><strong id="boss-label"></strong><span id="boss-hp"></span></div><progress id="boss-meter" aria-label="頭目生命條" max="1" value="1"></progress></section>
+<div id="route-actions"><button id="return-town" hidden>返回獅眼守望</button><button id="next-zone" hidden>下一張圖</button></div>
 <button id="town-entry" class="town-entry" hidden>進入獅眼守望</button>
 <section id="town" class="town-screen" aria-label="獅眼守望" hidden>
- <div class="town-banner"><small>第一章 · 安全區</small><h1>獅眼守望</h1><p>靠岸的避風處。整理好再繼續上路。</p><p id="opening-loot"></p></div>
+ <div class="town-banner"><small>第一章 · 安全區</small><h1>獅眼守望</h1><p>靠岸的避風處。整理好再繼續上路。</p><p id="opening-loot"></p><p id="chapter-status"></p></div>
  <div class="town-services">
   <button id="gem-merchant"><strong>寶石商</strong><span>指定購買主動與輔助寶石</span></button>
   <button id="gear-merchant"><strong>裝備賭商</strong><span>選部位，花金幣換隨機裝備</span></button>
   <button id="stash-keeper"><strong>倉庫保管員</strong><span>存取本局的裝備、寶石和通貨</span></button>
  </div>
- <button id="leave-town">前往暮光海灘 · 生存試煉</button>
+ <button id="leave-town">前往暮光海灘</button>
 </section>
 <dialog id="town-dialog" aria-label="城鎮服務"></dialog>
 <dialog id="guide-choice" aria-labelledby="guide-choice-title">
@@ -27,7 +29,11 @@
  <p>開局只有普攻。背包有主動寶石；先裝進插槽，再選作目前技能，角色才會自動施放。</p>
  <div class="button-row"><button id="start-guide">要教學</button><button id="skip-guide">跳過教學</button></div>
 </dialog>
+<dialog id="game-menu" aria-labelledby="menu-title">
+ <h2 id="menu-title">遊戲選單</h2><p id="restart-warning" hidden>重開會放棄本局進度和本局物品。</p>
+ <div class="button-row"><button id="menu-start">回到遊戲</button><button id="restart">重新開始</button><button id="confirm-restart" hidden>確認重開本局</button></div>
+</dialog>
 <dialog id="gem-panel" aria-labelledby="gem-title"></dialog>
 <noscript>請開啟 JavaScript 才能玩。</noscript>
-<script type="module" src="./play.mjs?v=0.4.2"></script>
+<script type="module" src="./play.mjs?v=0.5.0"></script>
 </body></html>

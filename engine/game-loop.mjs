@@ -46,7 +46,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
   for(const cast of state.enemyCasts??[]){
    if(cast.impactAt>time+dt){enemyCasts.push(cast);continue;}
    if(player.life>0&&Math.hypot(cast.x-player.x,cast.y-player.y)<=cast.radius)
-    rollHit({id:cast.source},{source:'spell',baseDamage:{fire:cast.damage},criticalChance:0,igniteChance:0});
+    rollHit({id:cast.source},{source:'spell',baseDamage:{[cast.element??'fire']:cast.damage},criticalChance:0,igniteChance:0});
   }
   for(const e of enemies){
    if(e.life<=0||player.life<=0||!e.attack||e.frozenUntil>time)continue;

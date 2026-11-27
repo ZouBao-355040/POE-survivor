@@ -1,5 +1,5 @@
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.4.2';
-import {stepWorld} from './engine/game-loop.mjs?v=0.4.2';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.0';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.0';
 import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs';
@@ -8,17 +8,18 @@ import {catalog,gemById,researchIndex} from './engine/projectile-catalog.mjs';
 import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs';
 import {grantExperience,resolveLevelChoice} from './engine/progression.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.4.2';
+import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
+import {places,gate,hillockId,canEnterTown,openingBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.0';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,hillockLoot,equipGear,transferGear,transferGem,transferOrb,equippedStats,itemAffix} from './engine/town-services.mjs';
 
 const $=s=>document.querySelector(s);
 const panel=$('#gem-panel'),toggle=$('#gems'),canvas=$('canvas'),ctx=canvas.getContext('2d'),status=$('#status'),reward=$('#reward');
-const town=$('#town'),townDialog=$('#town-dialog'),guideChoice=$('#guide-choice');
+const town=$('#town'),townDialog=$('#town-dialog'),guideChoice=$('#guide-choice'),gameMenu=$('#game-menu');
 const modifiers=new ModifierStore(),enemyModifiers=new ModifierStore();
 const names={Bow:'弓',Wand:'法杖',Claw:'爪',Shield:'盾牌','One Hand Sword':'單手劍','One Hand Axe':'單手斧',Unarmed:'空手'};
 const socketNames={weapon:'武器',body:'胸甲',helmet:'頭盔',gloves:'手套',boots:'鞋子'};
 const gemName=id=>gemById.get(id)?.name??'普通攻擊';
-const enabled=()=>state.zone!=='town'&&state.encounter?.phase!=='cleared'&&!panel.open&&!guideChoice.open&&!state.dead&&!(state.progression.pendingChoices>0);
+const enabled=()=>state.zone!=='town'&&state.encounter?.phase!=='cleared'&&!panel.open&&!guideChoice.open&&!gameMenu.open&&!state.dead&&!(state.progression.pendingChoices>0);
 const div=(txt,cls)=>{const n=document.createElement('div');n.textContent=txt;if(cls)n.className=cls;return n;};
 const button=(txt,fn,options={})=>{const b=document.createElement('button');b.type='button';b.textContent=txt;b.onclick=fn;
  if(options.selected!==undefined)b.setAttribute('aria-pressed',options.selected);
@@ -45,9 +46,9 @@ function reset(askGuide=true){
  inventory.acquire(gemById.get('burning-arrow'));inventory.acquire(gemById.get('momentum'));
  townItems=newTownServices();modifiers.remove('town-gear');guide=false;
  picked=null;tab='owned';if(panel.open)panel.close();
- if(townDialog.open)townDialog.close();if(guideChoice.open)guideChoice.close();
+ if(townDialog.open)townDialog.close();if(guideChoice.open)guideChoice.close();if(gameMenu.open)gameMenu.close();
  clearInput();acc=0;shopTab='active';shopSearch='';shopCompatible=true;hooks=rangerHooks({modifiers,inventory});
- state={zone:'beach',gateOpen:false,player:{x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}},
+ state={zone:'beach',gateOpen:false,routeIndex:0,chapterComplete:false,player:{x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}},
   enemies:openingBeach(),projectiles:[],flasks:starterFlasks(),gold:0,goldDrops:[],time:0,progression:{level:1},kills:0};
  $('#toast').textContent='';reward.hidden=true;
  if(askGuide)guideChoice.showModal();
@@ -65,17 +66,21 @@ function enterTown(){
   state.progression={...grantExperience(state.progression,state.beachXP??0,xpCost),pendingChoices:0};
   state={...state,zone:'town',enemies:[],projectiles:[],fields:[],goldDrops:[],time:0,
     cooldown:0,nextSpawn:0,flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,x:0,y:0}};
- }else if(state.zone==='trial'&&!state.dead&&state.encounter?.phase==='cleared'){
-  state={...state,zone:'town',encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
+ }else if(state.zone==='trial'&&(state.dead||state.encounter?.phase==='cleared')){
+  const route=advanceRoute(state);
+  state={...route,zone:'town',dead:false,progression:{...state.progression,pendingChoices:0},encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
     flasks:starterFlasks(),player:{...state.player,life:state.player.maximumLife,mana:state.player.maximumMana,x:0,y:0}};
  }else return;
  acc=0;clearInput();$('#toast').textContent='';
 }
-function leaveTown(){
- if(state.zone!=='town')return;
+function startStage(route){
+ const next=trialStage(route.routeIndex??0);
+ if(!next)return;
  if(townDialog.open)townDialog.close();
- state=beginTrial(state);acc=0;clearInput();$('#toast').textContent='';
+ state=beginTrial(route,next);acc=0;clearInput();$('#toast').textContent='';
 }
+function leaveTown(){if(state.zone==='town')startStage(state);}
+function nextZone(){const route=advanceRoute(state);if(route!==state)startStage(route);}
 function updateEquipment(){
  const stats=equippedStats(townItems),p=state.player,maximumLife=70+stats.life;
  modifiers.replace('town-gear',stats.attack?[{stat:'damage',kind:'increased',value:stats.attack,tags:['attack']}]:[]);
@@ -84,6 +89,7 @@ function updateEquipment(){
 $('#town-entry').onclick=enterTown;
 $('#return-town').onclick=enterTown;
 $('#leave-town').onclick=leaveTown;
+$('#next-zone').onclick=nextZone;
 function closeGems(){guide=false;if(panel.open)panel.close();state={...state,paused:false};acc=0;clearInput();toggle.focus();}
 function openGems(){state={...state,paused:true};acc=0;clearInput();renderGems();panel.showModal();}
 toggle.onclick=openGems;
@@ -277,7 +283,17 @@ $('#gem-merchant').onclick=()=>openService(()=>renderShop(true));
 $('#gear-merchant').onclick=()=>openService(renderGambler);
 $('#stash-keeper').onclick=()=>openService(renderStash);
 reset();
-$('#restart').onclick=()=>reset();
+const menuStart=$('#menu-start'),restart=$('#restart'),confirmRestart=$('#confirm-restart');
+function restartPhase(confirming){
+ restart.hidden=confirming;confirmRestart.hidden=!confirming;
+ $('#restart-warning').hidden=!confirming;
+}
+$('#menu-open').onclick=()=>{clearInput();acc=0;restartPhase(false);gameMenu.showModal();};
+function closeMenu(){gameMenu.close();clearInput();acc=0;$('#menu-open').focus();}
+menuStart.onclick=closeMenu;
+restart.onclick=()=>{restartPhase(true);confirmRestart.focus();};
+confirmRestart.onclick=()=>reset();
+gameMenu.addEventListener('cancel',e=>{e.preventDefault();closeMenu();});
 addEventListener('keydown',e=>{
  if(!enabled())return;
  if(e.key.toLowerCase()==='i'){openGems();return;}
@@ -295,8 +311,11 @@ function simulate(){
  const step=state.zone==='beach'?stepBeach:state.zone==='trial'?stepTrial:stepWorld;
  state=step(state,.02,{...hooks,direction,manaRegen:state.practice?22:2.85,enemyModifiers,experienceRequired:state.practice?null:xpCost});
  for(const ev of state.events??[]){
-  if(ev.type==='boss-arrives')notify(ev.reason==='clear'?'普通怪已清空，怒炎之使提前登場！':'時間到，怒炎之使已登場！');
-  if(ev.type==='trial-cleared')notify('擊敗怒炎之使，暮光海灘通關。');
+  if(ev.type==='boss-arrives')notify(ev.reason==='clear'?'普通怪已清空，'+ev.name+' 提前登場！':'時間到，'+ev.name+' 已登場！');
+  if(ev.type==='trial-cleared')notify(state.encounter.stageName+'通關。');
+  if(ev.type==='boss-phase')notify(ev.name+'進入第二階段！');
+  if(ev.type==='glyphs-needed')notify('獸巢還有雕紋。走近未拾取的雕紋即可收集。');
+  if(ev.type==='glyph')notify('已找到 '+ev.count+'/3 個雕紋。');
   if(ev.type==='kill'){
    state.kills++;
    const ups=inventory.grantExperience(ev.experience,state.progression.level);
@@ -315,7 +334,8 @@ function render(){
  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
  ctx.setTransform(dpr,0,0,dpr,0,0);
  const p=state.player,scale=Math.min(w,h)/23;
- ctx.fillStyle=state.zone==='beach'?'#302a25':state.zone==='town'?'#181c23':'#171c20';ctx.fillRect(0,0,w,h);
+ const trial=state.zone==='trial'?state.encounter:null;
+ ctx.fillStyle=state.zone==='beach'?'#302a25':state.zone==='town'?'#181c23':({mud:'#22281e',cave:'#151c29',ridge:'#282729',prison:'#242128'}[trial?.theme]??'#171c20');ctx.fillRect(0,0,w,h);
  const point=o=>[w/2+(o.x-p.x)*scale,h/2+(o.y-p.y)*scale];
  function dot(o,r,c){const [x,y]=point(o);ctx.fillStyle=c;ctx.beginPath();ctx.arc(x,y,r*scale,0,Math.PI*2);ctx.fill();}
  if(state.zone==='beach'){
@@ -326,6 +346,11 @@ function render(){
   ctx.fillStyle=state.gateOpen?'#659478':'#936c54';ctx.fillRect(gx-4,gy-scale*4,8,scale*8);
   ctx.fillStyle='#f8dca3';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
   ctx.fillText(state.gateOpen?'獅眼守望 →':'城門',gx,gy-scale*4-7);ctx.textAlign='start';
+ }
+ for(const glyph of trial?.glyphs??[]){
+  if(glyph.taken)continue;
+  dot(glyph,.32,'#efd184');const [gx,gy]=point(glyph);
+  ctx.fillStyle='#f7e5ac';ctx.font='bold 12px sans-serif';ctx.fillText('雕紋',gx-12,gy-12);
  }
  ctx.strokeStyle=state.zone==='beach'?'#443a30':'#263036';ctx.lineWidth=1;
  ctx.beginPath();
@@ -339,8 +364,8 @@ function render(){
   const [x,y]=point(cast),r=cast.radius*scale;
   const progress=Math.max(0,1-(cast.impactAt-state.time)/cast.windup);
   ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
-  ctx.fillStyle='rgba(234,76,27,'+(0.12+progress*.22)+')';ctx.fill();
-  ctx.strokeStyle='#f79255';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle=(cast.element==='cold'?'rgba(113,161,240,':'rgba(234,76,27,')+(0.12+progress*.22)+')';ctx.fill();
+  ctx.strokeStyle=cast.element==='cold'?'#9cdcff':'#f79255';ctx.lineWidth=2;ctx.stroke();
   ctx.beginPath();ctx.arc(x,y,r*progress,0,Math.PI*2);ctx.stroke();
  }
  for(const loot of state.goldDrops??[]){
@@ -368,28 +393,46 @@ function render(){
   tag.textContent=(key==='life'?'紅水':'藍水')+' '+f.charges+'/'+base.capacity+(f.remaining>0?' · 回復中':'');
  }
  const n=Math.floor(state.time??0);
- status.textContent=places[state.zone]+' · 等級 '+state.progression.level+' · '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')+' · 擊殺 '+state.kills+(state.dead?' · 已死亡':'');
+ status.textContent=(trial?.stageName??places[state.zone])+' · 等級 '+state.progression.level+' · '+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')+' · 擊殺 '+state.kills+(state.dead?' · 已死亡':'');
  $('#gold-hud').textContent='金幣 '+state.gold;
  const selected=inventory.current()?.active;
  const attackName=selected?selected.name+' 等級 '+selected.level:'普通攻擊';
  $('#hint').textContent=state.zone==='beach'?attackName+(state.gateOpen?' · 往右走到城門':' · 往右，擊敗西拉克'):
    state.zone==='town'?'安全區 · 可整理裝備':attackName+' · 拖曳或 WASD 移動';
  town.hidden=state.zone!=='town';
- if(state.zone==='town')$('#opening-loot').textContent=state.openingLoot??'';
+ if(state.zone==='town'){
+  $('#opening-loot').textContent=state.openingLoot??'';
+  const next=trialStage(state.routeIndex??0);
+  $('#leave-town').hidden=!next;
+  if(next)$('#leave-town').textContent='前往'+next.name;
+  $('#chapter-status').textContent=state.chapterComplete?'第一章已完成，第二章尚未開放。':'第一章主線：'+(state.routeIndex??0)+'/'+actOne.length+' 張地圖已完成';
+ }
  $('#town-entry').hidden=!canEnterTown(state);
- const trial=state.zone==='trial'?state.encounter:null,hud=$('#zone-objective');
+ const boss=state.enemies.find(e=>e.boss&&e.life>0),bar=$('#boss-hud'),meter=$('#boss-meter');
+ bar.hidden=!boss||state.dead||trial?.phase==='cleared';
+ if(!bar.hidden){
+  meter.max=boss.maximumLife;meter.value=boss.life;
+  $('#boss-label').textContent=boss.name+(boss.enraged?' · 第二階段':'');
+  $('#boss-hp').textContent=Math.ceil(boss.life)+' / '+boss.maximumLife;
+ }
+ const hud=$('#zone-objective');
  hud.hidden=!trial;
  if(trial){
   if(trial.phase==='waves'){
    const secs=Math.max(0,Math.ceil(trial.duration-state.time-1e-9));
    const remaining=trial.total-trial.generated+state.enemies.filter(e=>!e.boss).length;
-   hud.textContent='尾王倒數 '+Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0')+' · 普通怪剩 '+remaining+'/'+trial.total+' · 在場 '+state.enemies.length+'/'+trial.maxActive;
+   hud.textContent=(trial.boss?'尾王倒數 ':'區域倒數 ')+Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0')+' · 普通怪剩 '+remaining+'/'+trial.total+' · 在場 '+state.enemies.length+'/'+trial.maxActive;
   }else if(trial.phase==='boss'){
-   const boss=state.enemies.find(e=>e.boss);
-   hud.textContent=(trial.bossReason==='clear'?'清怪提前出王':'倒數到時出王')+' · 怒炎之使'+(boss?' '+Math.ceil(100*boss.life/boss.maximumLife)+'%':'');
-  }else hud.textContent='暮光海灘通關 · 可返回獅眼守望';
+   hud.textContent=(trial.bossReason==='clear'?'清怪提前出王':'倒數到時出王')+' · '+trial.boss.name;
+  }else if(trial.phase==='glyphs')hud.textContent='收集剩餘雕紋';
+  else hud.textContent=trial.stageName+'通關'+(trialStage((state.routeIndex??0)+1)?'':' · 第一章完成');
+  if(trial.glyphs.length&&trial.phase!=='cleared')hud.textContent+=' · 雕紋 '+trial.glyphs.filter(g=>g.taken).length+'/3';
  }
- $('#return-town').hidden=!trial||state.dead||trial.phase!=='cleared';
+ const next=trialStage((state.routeIndex??0)+1);
+ const onward=$('#next-zone');onward.hidden=!trial||state.dead||trial.phase!=='cleared'||!next;
+ if(!onward.hidden)onward.textContent='前往'+next.name;
+ const back=$('#return-town');back.hidden=!trial||(!state.dead&&trial.phase!=='cleared');
+ if(!back.hidden)back.textContent=state.dead?'返回獅眼守望 · 重試':'返回獅眼守望';
  if(state.time>=toastUntil)$('#toast').textContent='';
  const showReward=state.zone==='trial'&&state.progression.pendingChoices>0&&!state.dead;
  if(showReward&&reward.hidden)renderShop();

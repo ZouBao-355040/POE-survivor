@@ -1,4 +1,5 @@
-import {stepWorld} from './game-loop.mjs';
+import {actOne} from './act-one.mjs';
+import {stepWorld} from './game-loop.mjs?v=0.5.0';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -37,7 +38,7 @@ export function stepBeach(state,dt,options){
  return {...next,player:{...next.player,x,y},gold,goldDrops,gateOpen:!!(state.gateOpen||opened),beachXP};
 }
 
-export const coastRules=Object.freeze({duration:120,packs:10,packSize:6,maxActive:12,refillAt:6});
+export const coastRules=actOne[0];
 export const coastBossId='coast-boss';
 export function trialBudget({packs,packSize},{extraPacks=0,increasedPackSize=0}={}){
  const groups=Math.max(0,Math.floor(packs+extraPacks));
@@ -53,7 +54,11 @@ export function beginTrial(state,rules=coastRules,mapMods){
  return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,dead:false,
   paused:false,projectiles:[],enemies:[],fields:[],enemyCasts:[],goldDrops:[],events:[],
   player:{...state.player,x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
-   duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null}};
+   duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null,
+   stageId:rules.id??'coast',stageName:rules.name??'暮光海灘',theme:rules.theme??'coast',
+   rank:Math.max(0,actOne.findIndex(s=>s.id===rules.id)),
+   boss:Object.hasOwn(rules,'id')?(rules.boss??null):coastRules.boss,
+   glyphs:rules.glyphs?[{x:0,y:-5.5,taken:false},{x:-7,y:3,taken:false},{x:7,y:3,taken:false}]:[]}};
 }
 // PoE Coast families: Cannibal, Cannibal Fire-eater, Shore Crab and Fire Fury.
 const coastFamilies=['cannibal','cannibal','fire-eater','cannibal','crab','cannibal'];
@@ -65,6 +70,15 @@ function coastNormal(id,x,y,band,i){
  if(family==='crab')return shoreEnemy(id,x,y,27+life,{family,name:'沿岸蟹',speed:1.45,range:.7,physical:5,
   radius:.46,experienceReward:6,defence:{armour:5}});
  return shoreEnemy(id,x,y,19+life,{family,name:'食人族',speed:2.02+.08*(i%3),physical:4+Math.floor(band/4),experienceReward:6});
+}
+function routeNormal(encounter,id,x,y,band,i){
+ if(encounter.theme==='coast')return coastNormal(id,x,y,band,i);
+ const role=(i+band)%6,rank=encounter.rank,life=20+rank*2+Math.floor(band/3)*3;
+ const kind=encounter.theme==='mud'?'恐喙鳥':encounter.theme==='prison'?'囚牢不死者':encounter.theme==='ridge'?'山道襲擊者':'洞穴爬行者';
+ if(role===2)return shoreEnemy(id,x,y,life,{family:'fire-eater',name:'遠程伏擊者',speed:1.48,range:5.9,attacksPerSecond:.34,
+  fireCast:{damage:8+Math.floor(rank*.7),radius:1.2,windup:.86},experienceReward:6});
+ if(role===4)return shoreEnemy(id,x,y,life+10,{family:'crab',name:'重甲'+kind,speed:1.58,physical:6,radius:.49,defence:{armour:6+rank},experienceReward:6});
+ return shoreEnemy(id,x,y,life,{family:'chaser',name:kind,speed:2.02+rank*.034,physical:4+Math.floor(rank/3),experienceReward:6});
 }
 function refill(state,random){
  const e=state.encounter;
@@ -81,23 +95,39 @@ function refill(state,random){
   const x=state.player.x+Math.cos(angle)*11,y=state.player.y+Math.sin(angle)*11;
   for(let i=0;i<groupLength;i++){
    const n=e.generated+additions.length,band=Math.floor(n/e.perGroup),side=(i-(groupLength-1)/2)*.62;
-   additions.push(coastNormal('coast-'+n,x+side*Math.sin(angle),y-side*Math.cos(angle),band,n%e.perGroup));
+   additions.push(routeNormal(e,e.stageId+'-'+n,x+side*Math.sin(angle),y-side*Math.cos(angle),band,n%e.perGroup));
   }
  }
  return {...state,enemies:[...state.enemies,...additions],encounter:{...e,arrivals,generated:e.generated+additions.length}};
 }
-function createCoastBoss(player){
- return shoreEnemy(coastBossId,player.x+8,player.y,178,{boss:true,name:'怒炎之使',speed:1.64,
-  range:6.8,physical:12,attacksPerSecond:.39,radius:.76,experienceReward:23,goldReward:9,flaskChargeReward:11,
-  fireCast:{damage:16,radius:2.1,windup:.9}});
+function createStageBoss(player,encounter){
+ const b=encounter.boss;
+ return shoreEnemy(coastBossId,player.x+8,player.y,b.health,{boss:true,name:b.name,speed:b.speed??1.64,
+  range:b.range??1.35,physical:b.physical??12,attacksPerSecond:b.rate,radius:.8,
+  experienceReward:23,goldReward:9,flaskChargeReward:11,...(b.fireCast?{fireCast:b.fireCast}:{})});
 }
 function launchBoss(state,reason){
  const e=state.encounter,enemies=[...state.enemies];
- // Reserve one slot without treating the displaced monster as a kill.
  const heldEnemy=enemies.length>=e.maxActive?enemies.pop():null;
  return {...state,encounter:{...e,phase:'boss',bossReason:reason,heldEnemy},
-  enemies:[...enemies,createCoastBoss(state.player)],
-  events:[...(state.events??[]),{type:'boss-arrives',reason}]};
+  enemies:[...enemies,createStageBoss(state.player,e)],
+  events:[...(state.events??[]),{type:'boss-arrives',reason,name:e.boss.name}]};
+}
+function collectGlyphs(next){
+ const e=next.encounter;
+ if(!e.glyphs.length)return next;
+ const glyphs=e.glyphs.map(g=>g.taken||Math.hypot(g.x-next.player.x,g.y-next.player.y)>1.4?g:{...g,taken:true});
+ if(glyphs.every((g,i)=>g===e.glyphs[i]))return next;
+ return {...next,encounter:{...e,glyphs},events:[...next.events,{type:'glyph',count:glyphs.filter(g=>g.taken).length}]};
+}
+function finishStage(next){
+ const encounter=next.encounter;
+ const gold=next.gold+(next.goldDrops??[]).reduce((total,item)=>total+item.amount,0);
+ const waiting=encounter.glyphs.some(g=>!g.taken);
+ return {...next,gold,goldDrops:[],enemyCasts:[],progression:{...next.progression,pendingChoices:0},
+  ...(waiting?{enemies:[],projectiles:[],fields:[]}:{}),
+  encounter:{...encounter,phase:waiting?'glyphs':'cleared',heldEnemy:null},
+  events:[...next.events,{type:waiting?'glyphs-needed':'trial-cleared'}]};
 }
 export function stepTrial(state,dt,options={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('Trial step must be between 0 and 50ms');
@@ -106,18 +136,23 @@ export function stepTrial(state,dt,options={}){
  // Load the starting monsters immediately, then check the threshold again after combat.
  const input=state.encounter.phase==='waves'&&state.time<state.encounter.duration&&state.encounter.generated===0
   ?refill(state,random):state;
- const next=stepWorld(input,dt,{...options,enemyStats:null});
+ const next=collectGlyphs(stepWorld(input,dt,{...options,enemyStats:null}));
  if(next.dead)return next;
  const encounter=next.encounter;
  if(encounter.phase==='waves'){
-  if(next.time+1e-9>=encounter.duration)return launchBoss(next,'time');
-  if(encounter.generated===encounter.total&&next.enemies.length===0)return launchBoss(next,'clear');
+  const time=next.time+1e-9>=encounter.duration;
+  const clear=encounter.generated===encounter.total&&next.enemies.length===0;
+  if(time||clear)return encounter.boss?launchBoss(next,time?'time':'clear'):finishStage(next);
   return refill(next,random);
  }
- if(encounter.phase==='boss'&&next.events.some(event=>event.type==='kill'&&event.target===coastBossId)){
-  const gold=next.gold+(next.goldDrops??[]).reduce((total,item)=>total+item.amount,0);
-  return {...next,gold,goldDrops:[],enemyCasts:[],progression:{...next.progression,pendingChoices:0},
-   encounter:{...encounter,phase:'cleared',heldEnemy:null},events:[...next.events,{type:'trial-cleared'}]};
+ if(encounter.phase==='boss'&&next.events.some(event=>event.type==='kill'&&event.target===coastBossId))return finishStage(next);
+ if(encounter.phase==='glyphs'&&encounter.glyphs.every(g=>g.taken))return finishStage(next);
+ if(encounter.phase==='boss'&&encounter.boss?.phaseTwo){
+  const boss=next.enemies.find(e=>e.boss&&!e.enraged&&e.life<=e.maximumLife/2);
+  if(boss)return {...next,enemies:next.enemies.map(e=>e===boss?{...e,enraged:true,
+   fireCast:{...e.fireCast,radius:e.fireCast.radius*1.25,windup:e.fireCast.windup*.8},
+   attack:{...e.attack,attacksPerSecond:e.attack.attacksPerSecond*1.3}}:e),
+   events:[...next.events,{type:'boss-phase',name:boss.name}]};
  }
  if(encounter.phase==='boss'&&encounter.heldEnemy&&next.enemies.length<encounter.maxActive){
   return {...next,enemies:[...next.enemies,encounter.heldEnemy],encounter:{...encounter,heldEnemy:null}};
