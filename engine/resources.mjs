@@ -1,0 +1,26 @@
+import {damageTypes,clamp} from './core.mjs';
+export function applyDamage(state,damage,rules={}){
+ const next={...state};
+ const total=damageTypes.reduce((n,t)=>n+Math.max(0,damage[t]??0),0);
+ const chaos=Math.max(0,damage.chaos??0);
+ const spend=(key,amount)=>{const used=Math.min(Math.max(0,next[key]??0),amount);next[key]=(next[key]??0)-used;return amount-used;};
+ let remaining=total;
+ if(!rules.eldritchBattery){
+ const bypass=rules.chaosDoesNotBypass?0:chaos;
+ remaining=bypass+spend('energyShield',total-bypass);
+ }
+ const redirected=remaining*clamp(rules.damageTakenFromManaBeforeLife??0,0,1);
+ // EB protects mana; chaos bypasses that shield unless explicitly prevented.
+ const chaosRemaining=Math.min(remaining,rules.chaosDoesNotBypass?0:chaos);
+ const manaBypass=remaining>0?redirected*chaosRemaining/remaining:0;
+ const manaDue=rules.eldritchBattery?manaBypass+spend('energyShield',redirected-manaBypass):redirected;
+ const unpaid=spend('mana',manaDue);
+ const overkill=spend('life',remaining-redirected+unpaid);
+ return {state:next,dead:next.life<=0,overkill};
+}
+export function payManaCost(state,cost,{eldritchBattery=false}={}){
+ if(!Number.isFinite(cost)||cost<0)throw new RangeError('Invalid cost');
+ if(state.mana+(eldritchBattery?state.energyShield:0)<cost)return {paid:false,state};
+ const next={...state};const es=eldritchBattery?Math.min(next.energyShield,cost):0;next.energyShield-=es;next.mana-=cost-es;return {paid:true,state:next};
+}
+export function recover(state,key,amount){if(!['life','mana','energyShield'].includes(key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');const max=state[{life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'}[key]];return {...state,[key]:Math.min(max,state[key]+amount)};}
