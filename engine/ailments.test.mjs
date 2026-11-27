@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {AilmentPool,damagingAilment,elementalEffect} from './ailments.mjs';
+test('poison stacks and ignite strongest expires independently',()=>{const p=new AilmentPool();for(const [type,dps,duration] of [['poison',10,2],['poison',20,2],['ignite',30,4],['ignite',50,1]])p.add({type,dps,duration},0);assert.equal(p.damageRates(0).poison,30);assert.equal(p.damageRates(0).ignite,50);assert.equal(p.damageRates(2).ignite,30);});
+test('bleed uses physical base and movement multiplier',()=>{const p=new AilmentPool();p.add(damagingAilment('bleed',{physical:100,fire:100}),0);assert.ok(Math.abs(p.damageRates(0,{moving:true}).bleed-210)<1e-9);});
+test('shock and chill caps',()=>{assert.equal(elementalEffect('shock',100,100),.5);assert.equal(elementalEffect('chill',100,100),.3);});
