@@ -7,8 +7,8 @@ export function gemPrice(gem){
  }
  return gem.sourceKey?.startsWith('SupportAwakened')||gem.sourceKey?.startsWith('SupportGreater')?4:2;
 }
-export function purchaseGem({progression,gold,catalog,ownedIds},id){
- if(!(progression?.pendingChoices>0))throw new Error('商店尚未開放');
+export function purchaseGem({progression,gold,catalog,ownedIds,inTown=false},id){
+ if(!inTown&&!(progression?.pendingChoices>0))throw new Error('商店尚未開放');
  const gem=catalog.find(g=>g.id===id);
  if(!gem||ownedIds.includes(id))throw new Error('這顆寶石已擁有或不在商店內');
  const cost=gemPrice(gem);

@@ -14,3 +14,12 @@ h2,h3,p{margin:.6em 0}h2{color:var(--gold);font-size:1.28em}h3{font-size:1em}.mu
 
 #gold-hud{position:fixed;right:12px;bottom:53px;color:var(--gold);font-size:12px;pointer-events:none;font-variant-numeric:tabular-nums}#hint{right:70px}
 .shop-top{position:sticky;top:-16px;background:var(--panel);padding:.3rem 0;z-index:1}.shop-wallet{color:var(--gold);font-weight:700}.shop-list{text-align:left;padding:4px 0}.shop-list button{margin:0}.shop-item{min-height:60px}
+
+.town-entry{position:fixed;bottom:87px;left:50%;transform:translateX(-50%);z-index:2;border-color:var(--gold);white-space:nowrap}
+.town-screen{position:fixed;inset:84px max(14px,calc((100% - 680px)/2)) 86px;overflow:auto;padding:16px;background:linear-gradient(160deg,#282d37,#161a23);border:1px solid #6a675f;border-radius:12px;z-index:1;text-align:center;overscroll-behavior:contain}
+.town-banner small{color:var(--gold);letter-spacing:.22em}.town-banner h1{font-size:clamp(27px,6vw,43px);margin:6px 0;color:#f0d49e}.town-banner p{color:var(--dim)}.town-banner #opening-loot{color:#f2cf88;font-size:12px}
+.town-services{display:grid;gap:8px;margin:14px 0}.town-services button{text-align:left;padding:11px 14px;background:#262d38}.town-services strong,.town-services span{display:block}.town-services span{font-size:12px;color:var(--dim);margin-top:4px}
+.town-item{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:7px 0}.guide-tip{margin:8px 0;border-left:3px solid var(--gold);background:#3b3325;padding:9px}.guide-target{outline:2px solid #ffda80;outline-offset:2px}
+@media(min-width:580px){.town-services{grid-template-columns:repeat(3,1fr)}}
+
+#zone-objective{position:fixed;top:max(61px,calc(env(safe-area-inset-top) + 61px));left:12px;color:var(--gold);font-size:12px;padding:5px 8px;background:#171c20d9;border-radius:5px;pointer-events:none}@media(max-width:440px){#zone-objective{top:max(78px,calc(env(safe-area-inset-top) + 78px))}}
