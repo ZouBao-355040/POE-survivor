@@ -16,18 +16,18 @@ import {craftAvailability,craftGear} from '../engine/gear-crafting.mjs';
 import {newTownServices,emptyBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,gearSlots} from '../engine/town-services.mjs';
 
 const seed=number=>()=>((number=Math.imul(number,1664525)+1013904223|0)>>>0)/4294967296;
-const checkGuard=process.env.CHECK_GUARD==='1';
+const checkGuard=process.env.CHECK_GUARD==='1',checkYouth=process.env.CHECK_YOUTH==='1';
 const score=g=>g?g.value+(g.affixes??[]).reduce((n,x)=>n+x.value*(x.key==='life'?1:.45),0)+(checkGuard?.3*(g.baseDefence?.armour??0)+.5*(g.baseDefence?.energyShield??0):0):0;
 const started={x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}};
 const output=[];
 const checkCrimson=process.env.CHECK_CRIMSON==='1';
-const builds=checkGuard?['split-arrow']:process.env.CHECK_BLEED==='1'||checkCrimson?['puncture']:['burning-arrow','split-arrow','fireball'];
+const builds=checkGuard||checkYouth?['split-arrow']:process.env.CHECK_BLEED==='1'||checkCrimson?['puncture']:['burning-arrow','split-arrow','fireball'];
 
-for(const id of builds)for(const selfFound of checkGuard?[true]:[false,true]){
+for(const id of builds)for(const selfFound of checkGuard||checkYouth?[true]:[false,true]){
  const random=seed(137),lootRandom=seed(1737),inventory=new GemInventory(),modifiers=new ModifierStore();
  inventory.acquire(gemById.get(id));inventory.equip(id,'weapon',0);inventory.setMode(id,'auto');
  if(id!=='fireball'){inventory.acquire(gemById.get('momentum'));inventory.equip('momentum','weapon',1);}
- let town=newTownServices({starter:true}),drops=0,crafts=0,guardAreas=0;
+ let town=newTownServices({starter:true}),drops=0,crafts=0,guardAreas=0,youthAreas=0;
  let state={player:started,zone:'town',gold:0,progression:{level:2,passivePoints:1},flasks:starterFlasks(),pendingLoot:emptyBattleLoot()};
  const rows=[];
  const opts={...rangerHooks({modifiers,inventory,random}),enemyModifiers:new ModifierStore(),random,manaRegen:2.85,
@@ -43,9 +43,9 @@ for(const id of builds)for(const selfFound of checkGuard?[true]:[false,true]){
  for(const area of actOne){
   if(selfFound&&!state.progression.talents?.length&&talentPoints(state.progression).remaining)
    state={...state,progression:allocateTalent(state.progression,'39821')};
-  if(checkCrimson||checkGuard){
+  if(checkCrimson||checkGuard||checkYouth){
    let progress=state.progression;
-   for(const node of tracePath(progress,checkGuard?24720:17818).slice(1)){
+   for(const node of tracePath(progress,checkYouth?21650:checkGuard?24720:17818).slice(1)){
     if(progress.talents?.includes(String(node)))continue;
     if(points(progress).remaining===0)break;
     progress=allocate(progress,node);
@@ -54,6 +54,7 @@ for(const id of builds)for(const selfFound of checkGuard?[true]:[false,true]){
   }
   const player=applyLoadout(started,town,state.progression,modifiers,{refill:true});
   if(checkGuard&&player.defence.hitArmourMultiplier===2&&player.defence.armour>0)guardAreas++;
+  if(checkYouth&&player.rules.eternalYouth)youthAreas++;
   state=beginTrial({...state,player,flasks:starterFlasks(),zone:'town'},area);
   let bossAt,bossKO,minLife=player.life;
   for(let i=0;i<18000&&!state.dead&&state.encounter.phase!=='cleared';i++){
@@ -62,6 +63,7 @@ for(const id of builds)for(const selfFound of checkGuard?[true]:[false,true]){
    const dir=g?{x:g.x-state.player.x,y:g.y-state.player.y}:{x:Math.cos(i/54),y:Math.sin(i/54)};
    state=stepTrial(state,.02,{...opts,direction:dir,castPlan:inventory.castPlan()});
    minLife=Math.min(minLife,state.player.life);
+   if(checkYouth&&Number.isFinite(state.player.lifeRechargeStarted))lifeRechargeSeen=true;
    for(const e of state.events??[]){
     if(e.type==='kill'){
      inventory.grantExperience(e.experience,state.progression.level);
@@ -96,9 +98,10 @@ for(const id of builds)for(const selfFound of checkGuard?[true]:[false,true]){
   cleared:!!state.chapterComplete,maps:state.routeIndex??0,drops,crafts,
   ...(checkCrimson?{level:state.progression.level,allocated:state.progression.talents?.includes('17818')??false}:{}),
   ...(checkGuard?{level:state.progression.level,guardAreas,armour:state.player.defence.armour,energyShield:state.player.maximumEnergyShield}:{}),
+  ...(checkYouth?{youthAreas,level:state.progression.level}:{}),
   seconds:rows.reduce((sum,r)=>sum+r.seconds,0),minLife:Math.min(...rows.map(r=>r.minLife))};
  output.push(result);
  if(process.env.VERBOSE_BALANCE==='1'){console.log(result);console.table(rows);}
 }
 console.table(output);
-if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||checkGuard&&!r.guardAreas||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;
+if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||checkGuard&&!r.guardAreas||checkYouth&&!r.youthAreas||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;

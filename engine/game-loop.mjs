@@ -1,3 +1,4 @@
+import {tickLifeRecharge,interruptLifeRecharge} from './life-recharge.mjs?v=0.5.22';
 import {integrateBleed} from './bleed.mjs?v=0.5.21';
 import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './enemy-arrows.mjs?v=0.5.16';
 import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.18';
@@ -24,11 +25,13 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(enemyStats&&spawnInterval>0)while(nextSpawn<=time){enemies.push(spawnEnemy('enemy-'+nextId++,player,random()*Math.PI*2,spawnRadius,enemyStats));nextSpawn+=spawnInterval;}
  if(Number.isFinite(player.maximumMana))player.mana=Math.min(player.maximumMana-(player.reservedMana??0),(player.mana??0)+manaRegen*dt);
  if(Number.isFinite(player.maximumLife)&&player.life>0&&player.lifeRegen>0)player.life=recover(player,'life',player.lifeRegen*dt).life;
+ player=tickLifeRecharge(player,time,dt);
  if(player.maximumEnergyShield>0){
   const previous=Math.min(player.maximumEnergyShield,player.energyShield??0);
   player.energyShield=previous;
   const since=time+dt-(player.shieldInterruptedAt??0);
-  const charged=player.rules?.ghostReaver?previous:rechargeShield(previous,player.maximumEnergyShield,since,dt,{rate:player.esRechargeRate??1/3});
+  // In Survivor, Eternal Youth redirects the recharge even when Vaal Pact blocks life recovery.
+  const charged=player.rules?.ghostReaver||player.rules?.eternalYouth?previous:rechargeShield(previous,player.maximumEnergyShield,since,dt,{delay:player.esRechargeDelay??2,rate:player.esRechargeRate??1/3});
   const recharged=recover(player,'energyShield',charged-previous).energyShield;
   if(recharged>previous&&!player.shieldCharging){player.shieldRechargeStarted=time+dt;player.shieldCharging=true;}
   player.energyShield=recharged;
@@ -88,7 +91,8 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
    if(result.rechargeInterrupted&&!(player.rules?.wickedWard&&player.shieldCharging&&time+dt-player.shieldRechargeStarted<4)){
     result.target.shieldInterruptedAt=time+dt;result.target.shieldCharging=false;
    }
-   player=recordDivineShieldHit(consumeGhostShroud(queueHitRecoup(player,result.target),result),result,time+dt);
+   const affected=interruptLifeRecharge(player,result.target,time+dt);
+   player=recordDivineShieldHit(consumeGhostShroud(queueHitRecoup(player,affected),result),result,time+dt);
    events.push({type:'enemyAttack',source:attacker.id,attackKind:skill.attackKind,hit:result.hit.hit,blocked:result.mitigation?.blocked??false,dead:result.dead??false});
   };
   const swept=moveEnemyArrows(enemyArrows,dt,state.player,player);

@@ -43,6 +43,7 @@ export const keystones=Object.freeze({
  '11239':['windDancer','風魔舞者',['近期未被攻擊擊中時，承受 20% 更少攻擊傷害','近期被攻擊擊中時，10% 更多攻擊閃避機率，並承受 20% 更多攻擊傷害']],
  '23407':['perfectAgony','絕對受難',['異常狀態的持續傷害加成等同暴擊加成','暴擊不造成額外擊中傷害','非暴擊不能造成異常狀態']],
  '17818':['crimsonDance','緋紅舞蹈',['同一敵人最多同時承受 8 層你的流血傷害','你的流血不會因敵人移動而提高傷害，也無法被加劇','50% 更少流血傷害']],
+ '21650':['eternalYouth','青春永駐',['50% 更少生命再生率','生命偷取的每秒最大總回復量減半','能量護盾充能改為回復生命']],
  '24720':['imbalancedGuard','不平衡守衛',['計算擊中減傷時，以兩倍護甲防禦','傷害減免上限為 50%，不限制抗性、格擋或法術壓抑']],
  '58556':['divineShield','聖盾',['能量護盾無法回復至高於你的護甲','每秒回復近期擊中所防止的物理傷害的 3% 作為能量護盾']],
  '35255':['ghostDance','鬼舞',['每 2 秒獲得 1 層鬼影，最多 3 層','被擊中時失去 1 層鬼影，回復等同於閃避值 3% 的能量護盾','能量護盾無法回復至高於你的閃避值']],
@@ -157,6 +158,7 @@ export function parsePassiveLine(line){
  }
  if((m=line.match(/^(\d+)% increased (Evasion Rating and Armour|Armour and Evasion Rating)$/)))return [[numeric('evasion',+m[1]/100,'increased'),numeric('armour',+m[1]/100,'increased')],'閃避值與護甲提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Damage Over Time with Bow Skills$/)))return [[numeric('damageOverTime:bow',+m[1]/100,'increased')],'弓技能的持續傷害提高 '+m[1]+'%'];
+ if((m=line.match(/^(\d+)% faster start of Energy Shield Recharge$/)))return [[numeric('esFasterStart',+m[1]/100,'increased')],'能量護盾充能開始速度加快 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Energy Shield Recharge Rate$/)))return [[numeric('esRecharge',+m[1]/100,'increased')],'能量護盾充能率提高 '+m[1]+'%'];
  if(line==='Projectiles deal 20% increased Damage with Hits and Ailments for each Enemy Pierced')return [[numeric('perPierce',.2)],'每穿透 1 個敵人，此投射物的擊中與異常狀態傷害提高 20%'];
  if(line==='Projectiles deal 20% increased Damage with Hits and Ailments for each time they have Chained')return [[numeric('perChain',.2)],'每連鎖 1 次，此投射物的擊中與異常狀態傷害提高 20%'];
