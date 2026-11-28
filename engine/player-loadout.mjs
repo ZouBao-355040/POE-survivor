@@ -1,6 +1,6 @@
 import {blockStats} from './defence.mjs?v=0.5.21';
 import {equippedStats} from './town-services.mjs?v=0.5.21';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.29';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.30';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.18';
 import {resourceKeystones} from './keystones.mjs?v=0.5.18';
@@ -8,7 +8,7 @@ import {resourceKeystones} from './keystones.mjs?v=0.5.18';
 const baseline=['life','mana','es','evasion','accuracy','armour','move','manaRegen','lifeRegen','lifeRegenPct','esRegenPct','manaRegenFlat',
  'esRecharge','esFasterStart','manaRegenPerSpellBlock','suppress','suppressLucky','suppressPrevented','attackBlock','spellBlock','strength','dexterity','intelligence','lifeWithoutBodyLife',
  'damagePerDex','speedToDamage','bowSpeedToDamage','criticalUnique','criticalFull','reducedCritExtra','skillManaRecover','lowLifeThreshold',
- 'fullLifeThreshold','sixLifeMasteries','flaskChargeGain','flaskRecoveryLife','flaskRecoveryMana','flaskPeriodicLife','flaskPeriodicMana','flaskLifeOnHit','flaskLifeOnUse','flaskDuration','flaskEffect'];
+ 'fullLifeThreshold','movePerTotem','sixLifeMasteries','flaskChargeGain','flaskRecoveryLife','flaskRecoveryMana','flaskPeriodicLife','flaskPeriodicMana','flaskLifeOnHit','flaskLifeOnUse','flaskDuration','flaskEffect'];
 export function applyLoadout(player,town,progression,modifiers,{refill=false}={}){
  const gear=equippedStats(town),{keys,mods,lifeMasteries}=selectedPassives(progression);
  const sum=(stat,kind='flat')=>mods.reduce((a,m)=>a+(m.stat===stat&&m.kind===kind?m.value:0),0);
@@ -20,6 +20,9 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   const [stat,...tags]=m.stat.split(':');return {...m,stat,tags};
  });
  const plus=(stat,value,tags,kind='increased')=>{if(value)passiveMods.push({stat,kind,value,tags});};
+ // Totem Damage is a source modifier, including the deployed skill's native damage over time.
+ for(const m of passiveMods.filter(x=>x.stat==='damage'&&x.tags.join(':')==='totem'))
+  passiveMods.push({...m,stat:'nativeTotemDamage'});
  const strengthDamage=Math.floor(strength/5)*.01;
  plus('physicalDamage',strengthDamage,['attack','melee']);
  if(keys.has('ironGrip'))plus('physicalDamage',strengthDamage,['attack','projectile']);
@@ -67,7 +70,7 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   maximumMana,mana:refill?maximumMana:Math.min(player.mana,maximumMana),
   maximumEnergyShield,energyShield:refill?maximumEnergyShield:Math.min(player.energyShield??0,maximumEnergyShield),
   esRechargeDelay:2/(1+up('esFasterStart')),
-  esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),
+  esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),moveBase:4*gear.speed,movePerTotem:sum('movePerTotem'),
   lifeRegen:keys.has('zealotsOath')?0:regen()*(rules.eternalYouth?.5:1),esRegen:maximumEnergyShield*sum('esRegenPct')+(keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0),manaRegenMultiplier:Math.max(0,1+up('manaRegen')+sum('manaRegenPerSpellBlock')*block.spellBlock),manaRegenFlat:sum('manaRegenFlat'),
   flaskConfig:{gain:1+up('flaskChargeGain'),duration:1+up('flaskDuration'),effect:1+up('flaskEffect'),recovery:{life:1+up('flaskRecoveryLife'),mana:1+up('flaskRecoveryMana')},
    periodic:{life:sum('flaskPeriodicLife'),mana:sum('flaskPeriodicMana')},lifeOnHit:sum('flaskLifeOnHit'),lifeOnUse:sum('flaskLifeOnUse')},

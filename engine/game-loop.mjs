@@ -21,7 +21,13 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  let player={...state.player},enemies=state.enemies.map(e=>({...e})),projectiles=[],events=[];
  let time=state.time??0,nextSpawn=state.nextSpawn??0,nextId=state.nextId??0;
  const length=Math.hypot(direction.x,direction.y);
- if(length){momentum?.move();onMove?.(player.speed*dt);player.x+=direction.x/length*(player.speed*(1+(momentum?.movementSpeed(time)??0)))*dt;player.y+=direction.y/length*(player.speed*(1+(momentum?.movementSpeed(time)??0)))*dt;}
+ if(length){
+  momentum?.move();
+  const totems=player.movePerTotem?(state.fields??[]).filter(f=>f.deploy==='totem'&&f.totemGroup&&f.until>time+1e-9).length:0;
+  const stepSpeed=player.speed+(player.moveBase??player.speed)*(player.movePerTotem??0)*totems;
+  const speed=stepSpeed*(1+(momentum?.movementSpeed(time)??0));
+  onMove?.(stepSpeed*dt);player.x+=direction.x/length*speed*dt;player.y+=direction.y/length*speed*dt;
+ }
  if(enemyStats&&spawnInterval>0)while(nextSpawn<=time){enemies.push(spawnEnemy('enemy-'+nextId++,player,random()*Math.PI*2,spawnRadius,enemyStats));nextSpawn+=spawnInterval;}
  if(Number.isFinite(player.maximumMana))player.mana=Math.min(player.maximumMana-(player.reservedMana??0),(player.mana??0)+manaRegen*dt);
  if(Number.isFinite(player.maximumLife)&&player.life>0&&player.lifeRegen>0)player.life=recover(player,'life',player.lifeRegen*dt).life;

@@ -53,6 +53,12 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^(\d+)% increased Totem Placement speed$/i)))
+  return [[numeric('totemPlacementSpeed',+m[1]/100,'increased')],'圖騰放置速度提高 '+m[1]+'%'];
+ if((m=line.match(/^Attack Skills have \+(\d+) to maximum number of Summoned Ballista Totems$/)))
+  return [[numeric('ballistaLimit:attack',+m[1])],'攻擊技能可同時召喚的砲塔圖騰上限 +'+m[1]];
+ if((m=line.match(/^(\d+)% increased Movement Speed per Summoned Totem$/)))
+  return [[numeric('movePerTotem',+m[1]/100)],'每個已召喚的圖騰使移動速度提高 '+m[1]+'%'];
  if((m=line.match(/^\+(\d+)% to (?:(Physical|Cold|Chaos) )?Damage over Time Multiplier$/))){
   const type=m[2]?.toLowerCase(),stat=type?type+'DotMultiplier':'dotMultiplier';
   return [[numeric(stat,+m[1]/100)],({physical:'物理',cold:'冰冷',chaos:'混沌'}[type]??'')+'持續傷害加成 +'+m[1]+'%'];

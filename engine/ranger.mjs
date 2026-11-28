@@ -1,4 +1,4 @@
-import {skillDotRate} from './dot.mjs?v=0.5.28';
+import {skillDotRate} from './dot.mjs?v=0.5.30';
 import {poisonApplication} from './poison.mjs?v=0.5.29';
 import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
@@ -13,7 +13,7 @@ import {resolveAttackImpact} from './combat.mjs?v=0.5.27';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
-import {mitigateDot} from './dot.mjs?v=0.5.21';
+import {mitigateDot} from './dot.mjs?v=0.5.30';
 
 const TAU=2*Math.PI;
 const segmentDistance=(e,a,b)=>{
@@ -102,10 +102,12 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const equipped=inventory?weaponStats(trainingWeapons[weaponType]):weapon;
   const attackContext=chosen.tags.includes('attack')?{...ctx,tags:[weaponType.toLowerCase().replaceAll(' ','-')]}:ctx;
   let skill=compileAttack(chosen,equipped,skillSupports,modifiers,random,attackContext);
-  const ballista=cast&&skill.deploy==='totem'&&chosen.tags.includes('bow');
-  const group=ballista?'ballista':cast&&skill.deploy==='totem'?'totem':null;
+  const ballista=skill.deploy==='totem'&&skill.source==='attack'&&skill.context.tags.includes('bow');
+  const group=ballista?'ballista':skill.deploy==='totem'?'totem':null;
   const deployed=group?env?.activeFields?.(f=>f.totemGroup===group)??[]:[];
-  const full=deployed.length>=(ballista?2:1)+(group&&player.rules?.ancestralBond?1:0);
+  // Preserve the two-ballista Survivor starting limit, not PoE's underlying gem/base split.
+  const ballistaExtra=ballista?Math.max(0,Math.floor(modifiers.calculate(0,'ballistaLimit',skill.context))):0;
+  const full=deployed.length>=(ballista?2+ballistaExtra:1)+(group&&player.rules?.ancestralBond?1:0);
   if(full&&!cast?.manual)return {player,cooldown:.15,projectiles:[],skill:chosen.id,deferred:true};
   let payment=paySkillCost(player,skill.costs);
   if(!payment.paid&&cast)return null;
@@ -226,7 +228,8 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
     if(Math.abs(turn)<=.5)env.hit(e,{...template,secondary:true},payment.state);
    }
   }
-  return {player:payment.state,cooldown:ballista?.48:cooldown,projectile:projectiles[0],projectiles,skill:chosen.id};
+  const placementCooldown=group?(ballista?.48:cooldown)/Math.max(.1,modifiers.calculate(1,'totemPlacementSpeed',skill.context)):cooldown;
+  return {player:payment.state,cooldown:placementCooldown,projectile:projectiles[0],projectiles,skill:chosen.id};
  },steer(p,dt,enemies,player){
   const a=p.skill.active;
   if(!p.fragment&&(a.wander||a.zigzag||a.helix||a.orbit)){

@@ -20,7 +20,7 @@ export function skillDotRate(base,type,modifiers,context={}){
  const tags=(context.tags??[]).filter(t=>t!=='hit');
  const dotContext={...context,tags};
  const elemental=['fire','cold','lightning'].includes(type);
- const scale=modifiers.calculate(1,['damageOverTime',type+'Damage',...(elemental?['elementalDamage']:[])],dotContext);
+ const scale=modifiers.calculate(1,['damageOverTime','nativeTotemDamage',type+'Damage',...(elemental?['elementalDamage']:[])],dotContext);
  const multiplier=tags.includes('minion')?1:Math.max(0,1+modifiers.calculate(0,['dotMultiplier',type+'DotMultiplier'],dotContext));
  return Math.max(0,base*scale*multiplier);
 }
