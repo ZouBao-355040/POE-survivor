@@ -50,3 +50,9 @@ node scripts/balance-act-one.mjs
 ## 箭舞（54922）與敵方弓箭
 
 依 [GGG 3.19 規則](https://www.pathofexile.com/forum/view-thread/3293287) 對投射物**攻擊**的閃避值乘 2，對近戰**攻擊**的閃避值乘 0.75。法術（即使有投射物）和未標記為這兩類的攻擊不變。此倍率只在當次命中檢定使用，不會改變面板，也不會影響鬼舞的護盾回復值。第一章沉寂海崖有少量遠古之弓：瞄準方向先用紫色虛線預告，發射後箭矢沿路徑飛行，能走位閃開。碰到才進入正常攻擊結算，可以被閃避或格擋，不是延時法術。箭矢射程由飛行速度乘飛行時間決定，並設有數量上限，換圖、重試或回城會清空。
+
+## 法術格擋與魔力回復
+
+魔力與法術格擋（50826）提供 2% 法術格擋；神幻壁壘（18174）再提供 6%，並按最終法術格擋率換成相同數值的提高魔力回復率。格擋是在實際命中流程獨立檢定，不等於閃避、法術躲避或法術壓抑，也不會格擋持續傷害。角色裝備總覽顯示各自的格擋機率和上限。
+
+防禦引擎按 [GGG 3.16 公式](https://www.pathofexile.com/forum/view-thread/3186390) 與 [3.25 上限](https://www.pathofexile.com/forum/view-thread/3531661) 準備了雙格擋上限與超限轉換；側身之擊的計算順序與 [Path of Building](https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/dev/src/Modules/CalcDefence.lua) 交叉核對。現行遊俠主線沒有可把攻擊格擋推到上限的來源，50679 與依賴武器條件的格擋專精暫不開放配置。

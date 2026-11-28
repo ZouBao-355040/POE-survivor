@@ -1,13 +1,13 @@
 import {resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {rows,starts} from './passive-tree-data.mjs?v=0.5.10';
-import {compilePassives,keystones} from './passive-effects.mjs?v=0.5.16';
+import {compilePassives,keystones} from './passive-effects.mjs?v=0.5.17';
 export {starts};
 export const sourceUrl='https://github.com/grindinggear/skilltree-export/blob/3.30.0/data.json';
 export const classNames=Object.freeze({Ranger:'遊俠',Marauder:'野蠻人',Witch:'女巫',Duelist:'決鬥者',Templar:'聖堂武僧',Shadow:'暗影刺客',Scion:'貴族'});
 const categories={Life:'生命',Mana:'魔力',Leech:'偷取',Projectile:'投射物',Bow:'弓',Attack:'攻擊',Caster:'施法',Evasion:'閃避',
  Critical:'暴擊',Armour:'護甲','Energy Shield':'能量護盾','Spell Suppression':'法術壓抑',Fire:'火焰',Cold:'冰冷',Lightning:'閃電',
  Elemental:'元素',Chaos:'混沌',Totem:'圖騰',Minion:'召喚物',Flask:'藥劑',Shield:'盾牌',Trap:'陷阱',Mine:'地雷'};
-const known={50338:'彈道學',54142:'靈巧',45035:'投射物傷害與命中',39821:'閃避與生命',2094:'閃避與生命'};
+const known={50338:'彈道學',54142:'靈巧',45035:'投射物傷害與命中',39821:'閃避與生命',2094:'閃避與生命',50826:'魔力與法術格擋',18174:'神幻壁壘'};
 const masteryClasses=new Map();
 export const nodes=new Map(rows.map(([id,original,kind,x,y,group,neighbors,lines,options])=>{
  const key=keystones[id];

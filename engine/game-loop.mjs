@@ -8,7 +8,7 @@ import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs?v=0.5.15';
 import {mitigateDot,integrateDot} from './dot.mjs';
 import {applyDamage,recover,recoveryLimit} from './resources.mjs?v=0.5.14';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.16';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.17';
 import {rechargeShield} from './recovery.mjs';
 import {agnosticStep,tickGhostShrouds,consumeGhostShroud} from './keystones.mjs?v=0.5.12';
 import {grantExperience} from './progression.mjs';

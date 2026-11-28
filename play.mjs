@@ -1,7 +1,7 @@
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
 import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.14';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.16';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.16';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.17';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.17';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.14';
 import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.10';
@@ -10,12 +10,12 @@ import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs?v=0.5.14';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.16';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.17';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.10';
 import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.10';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.16';
-import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.16';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.16';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.17';
+import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.17';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.17';
 import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.10';
 
 const $=s=>document.querySelector(s);
@@ -324,7 +324,10 @@ function renderEquipment(){
  const equipped=Object.entries(gearSlots).map(([slot,label])=>[slot,label,townItems.gear.find(g=>g.id===townItems.equipped[slot])]);
  const grid=div('','equipment-grid');
  for(const [,label,item] of equipped)grid.append(item?gearLabel(item,{detail:true}):div(label+' · 未穿戴','muted gear-empty'));
- townDialog.append(heading('已穿戴','h3'),grid,heading('裝備背包','h3'));
+ const d=state.player.defence??{},pct=n=>new Intl.NumberFormat('zh-TW',{style:'percent',maximumFractionDigits:1}).format(n);
+ const stat=div('攻擊格擋 '+pct(d.attackBlock??0)+'／'+pct(d.maximumAttackBlock??.75)+' 上限 · 法術格擋 '+pct(d.spellBlock??0)+'／'+pct(d.maximumSpellBlock??.75)+' 上限','muted');
+ stat.id='block-summary';
+ townDialog.append(heading('角色防禦','h3'),stat,heading('已穿戴','h3'),grid,heading('裝備背包','h3'));
  for(const item of townItems.gear)renderGearRow(item,renderEquipment);
  if(state.zone!=='town')townDialog.append(div('回城後可更換與打造裝備。','muted'));
 }

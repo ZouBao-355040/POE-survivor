@@ -10,11 +10,24 @@ export function shiftTaken(damage,rules=[]){
  for(const r of rs)out[r.to]+=amount*r.fraction*factor;
  }return out;
 }
+// Apply the attack multiplier before measuring excess; excess enters the spell base.
+export function blockStats({attack=0,spell=0,attackMaxBonus=0,spellMaxBonus=0,glancing=false,versatile=false}={}){
+ const penalty=versatile?.10:0, multiplier=glancing?2:1;
+ const maximumAttackBlock=clamp(.75+attackMaxBonus-penalty,0,.90);
+ const maximumSpellBlock=clamp(.75+spellMaxBonus-penalty,0,.90);
+ const uncappedAttackBlock=Math.max(0,attack*multiplier);
+ const attackBlockExcess=Math.max(0,uncappedAttackBlock-maximumAttackBlock);
+ const uncappedSpellBlock=Math.max(0,(spell+(versatile?2*attackBlockExcess:0))*multiplier);
+ return {attackBlock:Math.min(uncappedAttackBlock,maximumAttackBlock),spellBlock:Math.min(uncappedSpellBlock,maximumSpellBlock),
+  maximumAttackBlock,maximumSpellBlock,attackBlockExcess,blockedDamageFraction:glancing?.65:0};
+}
 // Preliminary ordinary hits only; special keystones and damage prevention deferred.
 export function mitigateHit({damage,source,defender={},penetration={},blockRoll=1,suppressRoll=1,suppressRetry=1}){
  if(!['attack','spell'].includes(source))throw new Error('Invalid source');
  const shifted=shiftTaken(damage,defender.takenAs);
- const blocked=blockRoll<clamp(source==='attack'?(defender.attackBlock??0):(defender.spellBlock??0),0,defender.maximumBlock??.75);
+ const isAttack=source==='attack';
+ const cap=(isAttack?defender.maximumAttackBlock:defender.maximumSpellBlock)??defender.maximumBlock??.75;
+ const blocked=blockRoll<clamp((isAttack?defender.attackBlock:defender.spellBlock)??0,0,cap);
  const suppressed=source==='spell'&&(defender.suppressionLucky?Math.min(suppressRoll,suppressRetry):suppressRoll)<clamp(defender.suppressionChance??0,0,1);
  const result=emptyDamage();
  for(const t of damageTypes){

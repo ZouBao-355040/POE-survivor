@@ -1,6 +1,6 @@
 import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './conversion.mjs';
 import {resolveHit} from './hit.mjs?v=0.5.15';
-import {mitigateHit} from './defence.mjs?v=0.5.7';
+import {mitigateHit} from './defence.mjs?v=0.5.17';
 import {applyDamage,paySkillCost} from './resources.mjs?v=0.5.14';
 import {igniteFromPackets} from './ignite.mjs?v=0.5.15';
 export function attack({attacker,target,skill,modifiers,rolls,context={},combatTime=0}){

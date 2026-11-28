@@ -114,8 +114,10 @@ export function parsePassiveLine(line){
   return [[numeric('criticalMultiplier',+m[1]/100)],'暴擊加成 +'+m[1]+'%'];
  if((m=line.match(/^\+(\d+)% chance to Suppress Spell Damage$/i)))
   return [[numeric('suppress',+m[1]/100)],'法術壓抑機率 +'+m[1]+'%'];
- if((m=line.match(/^\+(\d+)% Chance to Block (Attack|Spell) Damage$/i)))
+ if((m=line.match(/^\+?(\d+)% Chance to Block (Attack|Spell) Damage$/i)))
   return [[numeric(m[2].toLowerCase()+'Block',+m[1]/100)],(m[2].toLowerCase()==='attack'?'攻擊':'法術')+'格擋機率 +'+m[1]+'%'];
+ if(line==='1% increased Mana Regeneration Rate per 1% Chance to Block Spell Damage')
+  return [[numeric('manaRegenPerSpellBlock',1)],'每 1% 法術格擋機率使魔力回復率提高 1%'];
  if((m=line.match(/^Projectiles Pierce (\d+) additional Targets?$/i)))
   return [[numeric('pierce',+m[1])],'投射物額外穿透 '+m[1]+' 個目標'];
  if((m=line.match(/^Skills fire (\d+) additional Projectiles?$/i)))
