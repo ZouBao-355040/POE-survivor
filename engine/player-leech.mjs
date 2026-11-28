@@ -1,5 +1,5 @@
-import {damageProxy} from './combat-recovery.mjs?v=0.5.14';
-import {recoveryLimit} from './resources.mjs?v=0.5.14';
+import {damageProxy} from './combat-recovery.mjs?v=0.5.18';
+import {recoveryLimit} from './resources.mjs?v=0.5.18';
 import {LeechPool} from './recovery.mjs?v=0.5.9';
 const resources=[['life','maximumLife'],['mana','maximumMana'],['energyShield','maximumEnergyShield']];
 const descriptor=Object.fromEntries(resources.map(entry=>[entry[0],entry]));

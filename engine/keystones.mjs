@@ -1,4 +1,4 @@
-import {recover} from './resources.mjs?v=0.5.14';
+import {recover} from './resources.mjs?v=0.5.18';
 
 export function resourceKeystones(stats,keys=[]){
  const k=new Set(keys),s={...stats},rules={};
@@ -7,6 +7,7 @@ export function resourceKeystones(stats,keys=[]){
  if(k.has('theAgnostic')){s.maximumEnergyShield=0;rules.agnostic=true;}
  if(k.has('zealotsOath'))rules.lifeRegenToES=true;
  if(k.has('ghostDance'))rules.ghostDance=true;
+ if(k.has('divineShield'))rules.divineShield=true;
  if(k.has('vaalPact'))rules.vaalPact=true;
  if(k.has('ghostReaver')){rules.lifeLeechToES=true;rules.esLeechCapMultiplier=2;rules.noESRecharge=true;}
  return {stats:s,rules};
@@ -25,4 +26,30 @@ export function consumeGhostShroud(state,result){
  // Glancing Blows can deal damage on block but still doesn't trigger Ghost Dance.
  if(!state.rules?.ghostDance||!(state.ghostShrouds>0)||state.life<=0||!result.hit?.hit||result.mitigation?.blocked)return state;
  return recover({...state,ghostShrouds:state.ghostShrouds-1},'energyShield',Math.max(0,state.evasion??0)*.03);
+}
+
+export function recordDivineShieldHit(state,result,time){
+ if(!state.rules?.divineShield||state.life<=0||!result.hit?.hit)return state;
+ const prevented=result.mitigation?.physicalPrevented??0;
+ if(!(prevented>0))return state;
+ const hits=state.divineShieldHits??[],last=hits.at(-1);
+ // Hits in the same simulation tick share one expiry. Keep the ledger bounded by the time window.
+ const updated=last?.time===time?[...hits.slice(0,-1),{time,prevented:last.prevented+prevented}]:[...hits,{time,prevented}];
+ return {...state,divineShieldHits:updated};
+}
+
+export function tickDivineShield(state,time,dt){
+ if(!state.divineShieldHits?.length)return state;
+ if(!state.rules?.divineShield||state.life<=0)return {...state,divineShieldHits:[]};
+ const end=time+dt;
+ let recovered=0;
+ const active=[];
+ for(const hit of state.divineShieldHits){
+  const expiry=hit.time+4;
+  const duration=Math.max(0,Math.min(expiry,end)-Math.max(time,hit.time));
+  recovered+=hit.prevented*.03*duration;
+  if(expiry>end)active.push(hit);
+ }
+ const next={...state,divineShieldHits:active};
+ return recovered>0?recover(next,'energyShield',recovered):next;
 }

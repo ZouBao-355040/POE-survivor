@@ -1,4 +1,4 @@
-import {canRecover} from './resources.mjs?v=0.5.14';
+import {canRecover} from './resources.mjs?v=0.5.18';
 
 // PoE 1 starter bases. The full-charge enchant is granted to recovery flasks in this game.
 export const flaskBases=Object.freeze({

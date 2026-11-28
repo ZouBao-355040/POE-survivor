@@ -1,16 +1,16 @@
 import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './enemy-arrows.mjs?v=0.5.16';
-import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.13';
-import {advancePlayerLeech} from './player-leech.mjs?v=0.5.13';
+import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.18';
+import {advancePlayerLeech} from './player-leech.mjs?v=0.5.18';
 import {collectGold} from './gem-shop.mjs';
-import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.12';
+import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.18';
 import {moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs?v=0.5.15';
 import {mitigateDot,integrateDot} from './dot.mjs';
-import {applyDamage,recover,recoveryLimit} from './resources.mjs?v=0.5.14';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.17';
+import {applyDamage,recover,recoveryLimit} from './resources.mjs?v=0.5.18';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.18';
 import {rechargeShield} from './recovery.mjs';
-import {agnosticStep,tickGhostShrouds,consumeGhostShroud} from './keystones.mjs?v=0.5.12';
+import {agnosticStep,tickGhostShrouds,consumeGhostShroud,recordDivineShieldHit,tickDivineShield} from './keystones.mjs?v=0.5.18';
 import {grantExperience} from './progression.mjs';
 export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRadius=12,enemyStats,random=Math.random,onImpact,onFire,castPlan,manualRequest,onTerminate,onPulse,onTick,onHitEffect,steer,onMove,addSouls,momentum,manaRegen=0,enemyModifiers,experienceRequired,deferLoot=false}={}){
  if(!Number.isFinite(dt)||dt<0||dt>.05)throw new RangeError('World step must be between 0 and 50ms');
@@ -34,6 +34,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
   player=recover(player,'energyShield',(player.esRegen??0)*dt);
   if(player.energyShield>=recoveryLimit(player,'energyShield'))player.shieldCharging=false;
  }
+ player=tickDivineShield(player,time,dt);
  if(player.rules?.agnostic)player=agnosticStep(player,dt);
  player=tickHitRecoup(tickGhostShrouds(player,dt),dt);
  if(flasks)({player,flasks}=advanceFlaskRecovery(player,flasks,dt));
@@ -67,7 +68,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
    if(result.rechargeInterrupted&&!(player.rules?.wickedWard&&player.shieldCharging&&time+dt-player.shieldRechargeStarted<4)){
     result.target.shieldInterruptedAt=time+dt;result.target.shieldCharging=false;
    }
-   player=consumeGhostShroud(queueHitRecoup(player,result.target),result);
+   player=recordDivineShieldHit(consumeGhostShroud(queueHitRecoup(player,result.target),result),result,time+dt);
    events.push({type:'enemyAttack',source:attacker.id,attackKind:skill.attackKind,hit:result.hit.hit,blocked:result.mitigation?.blocked??false,dead:result.dead??false});
   };
   const swept=moveEnemyArrows(enemyArrows,dt,state.player,player);

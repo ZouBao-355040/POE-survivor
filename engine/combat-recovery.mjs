@@ -1,4 +1,4 @@
-import {recover} from './resources.mjs?v=0.5.14';
+import {recover} from './resources.mjs?v=0.5.18';
 
 export const combatRecoveryResources=Object.freeze({Life:'life',Mana:'mana','Energy Shield':'energyShield'});
 const poolMax={life:'maximumLife',mana:'maximumMana',energyShield:'maximumEnergyShield'};

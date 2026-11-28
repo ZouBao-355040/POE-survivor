@@ -56,3 +56,9 @@ node scripts/balance-act-one.mjs
 魔力與法術格擋（50826）提供 2% 法術格擋；神幻壁壘（18174）再提供 6%，並按最終法術格擋率換成相同數值的提高魔力回復率。格擋是在實際命中流程獨立檢定，不等於閃避、法術躲避或法術壓抑，也不會格擋持續傷害。角色裝備總覽顯示各自的格擋機率和上限。
 
 防禦引擎按 [GGG 3.16 公式](https://www.pathofexile.com/forum/view-thread/3186390) 與 [3.25 上限](https://www.pathofexile.com/forum/view-thread/3531661) 準備了雙格擋上限與超限轉換；側身之擊的計算順序與 [Path of Building](https://github.com/PathOfBuildingCommunity/PathOfBuilding/blob/dev/src/Modules/CalcDefence.lua) 交叉核對。現行遊俠主線沒有可把攻擊格擋推到上限的來源，50679 與依賴武器條件的格擋專精暫不開放配置。
+
+## 聖盾（58556）
+
+依 [GGG 3.16 規格](https://www.pathofexile.com/forum/view-thread/3186390) 與 [開發者的格擋說明](https://devtrackers.gg/pathofexile/p/65ee2fd1-finally-i-can-now-take-105-of-damage-from-blocked-hits)，成功擊中才計入防止量：從經過傷害承受轉移後的物理分量減去最後實際結算的物理傷害，最少為零。護甲、法術壓抑或格擋（包含側身之擊）可帶來防止量；閃避、躲避、持續傷害及消耗護盾或生命本身不計入。[傷害承受轉移](https://www.reddit.com/r/PathOfExileBuilds/comments/wjn7so/does_divine_shield_apply_to_damage_shifting/) 不算防止，轉成元素傷害後的抗性減傷也不算物理防止量。
+
+每次擊中的防止量會提供 4 秒獨立再生，每秒回復該量的 3% 作為能量護盾。護甲是所有能量護盾回復的額外上限；搭配鬼舞取護甲和閃避中較低者，不倒扣已有護盾。回城、重試與切換關卡清除舊的擊中紀錄；安全區補滿資源仍走原重置流程。

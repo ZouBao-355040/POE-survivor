@@ -48,7 +48,10 @@ const maximumKeys={life:'maximumLife',mana:'maximumMana',energyShield:'maximumEn
 export function recoveryLimit(state,key){
  const reserved=key==='life'?'reservedLife':key==='mana'?'reservedMana':'reservedEnergyShield';
  const maximum=Math.max(0,(state[maximumKeys[key]]??0)-(state[reserved]??0));
- return key==='energyShield'&&state.rules?.ghostDance?Math.min(maximum,Math.max(0,state.evasion??0)):maximum;
+ if(key!=='energyShield')return maximum;
+ const evasion=state.rules?.ghostDance?Math.max(0,state.evasion??0):Infinity;
+ const armour=state.rules?.divineShield?Math.max(0,state.defence?.armour??0):Infinity;
+ return Math.min(maximum,evasion,armour);
 }
 export function recover(state,key,amount){
  if(!Object.hasOwn(maximumKeys,key)||!Number.isFinite(amount)||amount<0)throw new Error('Invalid recovery');

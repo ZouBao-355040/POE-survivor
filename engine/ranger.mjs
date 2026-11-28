@@ -1,11 +1,11 @@
-import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.14';
-import {addHitLeech} from './player-leech.mjs?v=0.5.14';
+import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.18';
+import {addHitLeech} from './player-leech.mjs?v=0.5.18';
 import {compileAttack} from './skill.mjs?v=0.5.14';
 import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
-import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.14';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.17';
+import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.18';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.18';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
@@ -113,7 +113,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(chosen.shell){
    const current=payment.state.energyShield??0, floor=payment.state.maximumLife*.17;
    // Somatic Shell currently tops up the existing shield pool instead of adding another resource.
-   payment.state.energyShield=player.rules?.ghostDance?recover(payment.state,'energyShield',Math.max(0,floor-current)).energyShield:Math.max(current,floor);
+   payment.state.energyShield=(player.rules?.ghostDance||player.rules?.divineShield)?recover(payment.state,'energyShield',Math.max(0,floor-current)).energyShield:Math.max(current,floor);
   }
   const runtimeId=linked?.active.id??chosen.id;
   if(!runtimes.has(runtimeId))runtimes.set(runtimeId,{casts:0,intensity:0,lastIntensity:0,hunger:0,disgorgeUntil:0,lastSealAt:-4});

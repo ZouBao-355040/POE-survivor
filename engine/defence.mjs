@@ -41,5 +41,5 @@ export function mitigateHit({damage,source,defender={},penetration={},blockRoll=
  if(suppressed)v*=1-clamp(defender.suppressionPrevented??.5,0,1);
  if(blocked)v*=clamp(defender.blockedDamageFraction??0,0,1);
  result[t]=v;
- }return {damage:result,blocked,suppressed,total:Object.values(result).reduce((a,b)=>a+b,0)};
+ }return {damage:result,blocked,suppressed,physicalPrevented:Math.max(0,shifted.physical-result.physical),total:Object.values(result).reduce((a,b)=>a+b,0)};
 }

@@ -27,7 +27,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.17/);
+ assert.match(await text('.brand'),/v0\.5\.18/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
  assert.equal(await text('#campaign-character'),'遊俠');
@@ -336,7 +336,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
@@ -369,7 +369,7 @@ async function verifyVaalPact(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -405,7 +405,7 @@ async function verifyGhostDance(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -442,7 +442,7 @@ async function verifyAttackRecovery(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -490,7 +490,7 @@ async function verifySkillCost(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -532,7 +532,7 @@ async function verifyWindAndAgony(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -591,7 +591,7 @@ async function verifyEnemyArrows(){
    return original.apply(this,args);
   };
  });
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -638,7 +638,7 @@ async function verifySpellBlock(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.07;});
- await page.route('**/play.mjs?v=0.5.17',async route=>{
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -678,8 +678,56 @@ async function verifySpellBlock(){
  await page.close();
  console.log('法術格擋：手機裝備總覽 2% → 8%，實際法術成功格擋與未格擋皆驗證。');
 }
+async function verifyDivineShield(){
+ const {allocate,tracePath}=await import('../engine/passive-tree.mjs');
+ let p={characterClass:'Ranger',level:51,passivePoints:50};
+ for(const n of [44202,10661,3452])for(const id of tracePath(p,n).slice(1))p=allocate(p,id);
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
+ const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{Math.random=()=>.3;});
+ await page.route('**/play.mjs?v=0.5.18',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker='updateEquipment({refill:true});guideChoice.close();';
+  const allocation='updateEquipment();return state.progression;';
+  assert.ok(source.includes(marker)&&source.includes(allocation));
+  const fixture=`updateEquipment();if(id===58556){
+    Object.assign(state.player,{energyShield:0,esRegen:0,shieldInterruptedAt:state.time+100});
+    state.enemies=[];state.projectiles=[];state.cooldown=99;
+    state.enemyCasts=[{x:state.player.x,y:state.player.y,radius:4,source:'physical-cast',damage:20,element:'physical',impactAt:state.time+.65}];
+   }return state.progression;`;
+  await route.fulfill({response,body:source.replace(marker,`state.progression=${JSON.stringify(p)};updateEquipment({refill:true});state.enemies=[];guideChoice.close();`).replace(allocation,fixture)});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ await page.locator('#talent-open').click();
+ await page.getByRole('searchbox',{name:'搜尋天賦'}).fill('聖盾');
+ const node=page.locator('[data-talent-id="58556"]');
+ assert.equal(await node.getAttribute('data-talent-state'),'available');
+ await node.click();
+ assert.match(await page.locator('.talent-details').innerText(),/高於你的護甲/);
+ await page.locator('[data-talent-allocate="58556"]').click();
+ await page.keyboard.press('Escape');
+ await page.locator('#gear-open').click();
+ assert.match(await page.locator('#armour-summary').innerText(),/護甲 [1-9][0-9]* · 能量護盾回復上限 [1-9][0-9]*/);
+ await page.keyboard.press('Escape');
+ const shield=async()=>Number((await page.locator('#es-meter').innerText()).match(/護盾 (\d+)/)[1]);
+ await page.clock.runFor(260);
+ assert.equal(await shield(),0);
+ await page.clock.runFor(1000);
+ assert.ok(await shield()>0);
+ await page.clock.runFor(4200);
+ const expired=await shield();
+ assert.ok(expired>0);
+ await page.clock.runFor(2000);
+ assert.equal(await shield(),expired);
+ assert.deepEqual(errors,[]);
+ await page.close();
+ console.log('聖盾：手機配置後物理法術受到護甲減傷，才開始回復能量護盾，四秒後停止。');
+}
 try{
- if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();await verifySkillCost();await verifyWindAndAgony();await verifyEnemyArrows();await verifySpellBlock();}
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();await verifySkillCost();await verifyWindAndAgony();await verifyEnemyArrows();await verifySpellBlock();await verifyDivineShield();}
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}
