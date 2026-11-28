@@ -53,6 +53,14 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^(Attacks have )?(\d+)% chance to Ignite$/)))
+  return [[numeric('igniteChance'+(m[1]?':attack':''),+m[2]/100)],(m[1]?'攻擊':'')+'有 '+m[2]+'% 機率造成點燃'];
+ if((m=line.match(/^\+(\d+)% to Fire Damage over Time Multiplier( with Attack Skills)?$/)))
+  return [[numeric('fireDotMultiplier'+(m[2]?':attack':''),+m[1]/100)],(m[2]?'攻擊技能的':'')+'火焰持續傷害加成 +'+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased Ignite Duration on Enemies$/)))
+  return [[numeric('igniteDuration',+m[1]/100,'increased')],'敵人身上的點燃持續時間延長 '+m[1]+'%'];
+ if((m=line.match(/^Ignites you inflict deal Damage (\d+)% \[DamageFaster\|Faster\]$/)))
+  return [[numeric('igniteFaster',+m[1]/100)],'你造成的點燃傷害加快 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Damage Over Time with Bow Skills$/)))return [[numeric('damageOverTime:bow',+m[1]/100,'increased')],'弓技能的持續傷害提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Damage with Poison$/)))return [[numeric('poisonDamage',+m[1]/100,'increased')],'中毒傷害提高 '+m[1]+'%'];
  if((m=line.match(/^Attacks have (\d+)% chance to cause Bleeding$/)))

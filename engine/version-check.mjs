@@ -1,6 +1,6 @@
-import {versionCompare} from './checkpoint.mjs?v=0.5.26';
+import {versionCompare} from './checkpoint.mjs?v=0.5.27';
 
-export const buildVersion='0.5.26';
+export const buildVersion='0.5.27';
 export function versionCheck({read,show,now=()=>Date.now(),cooldown=60000,build=buildVersion}){
  let last=-Infinity,inflight=null,dismissed=null;
  return {

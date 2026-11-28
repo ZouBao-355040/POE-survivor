@@ -1,4 +1,4 @@
-import {attack} from './combat.mjs?v=0.5.21';
+import {attack} from './combat.mjs?v=0.5.27';
 import {igniteIntervals} from './ignite.mjs';
 import {mitigateDot} from './dot.mjs?v=0.5.21';
 import {applyDamage} from './resources.mjs?v=0.5.18';

@@ -1,6 +1,6 @@
 import {blockStats} from './defence.mjs?v=0.5.21';
 import {equippedStats} from './town-services.mjs?v=0.5.21';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.26';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.27';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.18';
 import {resourceKeystones} from './keystones.mjs?v=0.5.18';

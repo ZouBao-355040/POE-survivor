@@ -2,7 +2,7 @@ import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './co
 import {resolveHit} from './hit.mjs?v=0.5.15';
 import {mitigateHit} from './defence.mjs?v=0.5.21';
 import {applyDamage,paySkillCost} from './resources.mjs?v=0.5.18';
-import {igniteFromPackets} from './ignite.mjs?v=0.5.15';
+import {igniteContext,igniteFromPackets} from './ignite.mjs?v=0.5.27';
 export function attack({attacker,target,skill,modifiers,rolls,context={},combatTime=0}){
  context={...context,...(skill.context??{})};
  const payment=paySkillCost(attacker,skill.costs??skill.cost??0,skill.lifeCostRatio);
@@ -42,6 +42,8 @@ export function resolveAttackImpact({attacker,target,skill,modifiers,rolls,conte
  if(source==='attack')nextTarget.lastAttackHit=combatTime;
  const settlement=applyDamage(nextTarget,mitigation.damage,target.rules);
  const ailmentScale=(skill.elementalOverloadActive?1.4:1)*(skill.damageMultiplier??1)*(skill.projectileDamageMultiplier??1)*(1+(skill.increasedProjectileDamage??0));
- const ignite=!mitigation.blocked&&canInflictHitAilments&&(hit.critical||rolls.ignite<(skill.igniteChance??0))?igniteFromPackets(packets.map(p=>({...p,amount:p.amount*ailmentScale})),modifiers,context,criticalAilment,ailmentCriticalMultiplier):null;
- return {ignite:ignite?.rate>0?ignite:null,performed:true,hit,mitigation,damage,canInflictHitAilments,ailmentCriticalMultiplier,ailmentBase:aggregateDamage(packets),attacker:attacker,target:settlement.state,dead:settlement.dead,rechargeInterrupted:settlement.rechargeInterrupted};
+ const burnContext=igniteContext(context,source);
+ const passiveChance=burnContext.tags.includes('minion')?0:modifiers.calculate(0,'igniteChance',burnContext);
+ const ignite=!mitigation.blocked&&canInflictHitAilments&&(hit.critical||rolls.ignite<(skill.igniteChance??0)+passiveChance)?igniteFromPackets(packets.map(p=>({...p,amount:p.amount*ailmentScale})),modifiers,burnContext,criticalAilment,ailmentCriticalMultiplier):null;
+ return {ignite:ignite?.rate>0&&ignite.duration>0?ignite:null,performed:true,hit,mitigation,damage,canInflictHitAilments,ailmentCriticalMultiplier,ailmentBase:aggregateDamage(packets),attacker:attacker,target:settlement.state,dead:settlement.dead,rechargeInterrupted:settlement.rechargeInterrupted};
 }
