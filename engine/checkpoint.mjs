@@ -3,7 +3,7 @@ import {currencies} from './currency.mjs';
 import {GemInventory,createGemInstance} from './gem-inventory.mjs?v=0.5.14';
 import {gemById} from './projectile-catalog.mjs?v=0.5.10';
 import {gemLevelCap,gemXpRequired} from './gem-growth.mjs';
-import {allocate,nodes} from './passive-tree.mjs?v=0.5.31';
+import {allocate,nodes} from './passive-tree.mjs?v=0.5.32';
 import {gearSlots,equippedSocketLayout} from './town-services.mjs?v=0.5.21';
 import {affixCatalog} from './gear-crafting.mjs?v=0.5.10';
 

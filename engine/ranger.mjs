@@ -1,4 +1,4 @@
-import {skillDotRate} from './dot.mjs?v=0.5.31';
+import {skillDotRate} from './dot.mjs?v=0.5.32';
 import {poisonApplication} from './poison.mjs?v=0.5.29';
 import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
@@ -9,11 +9,11 @@ import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
 import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.18';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.31';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.32';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
-import {mitigateDot} from './dot.mjs?v=0.5.31';
+import {mitigateDot} from './dot.mjs?v=0.5.32';
 
 const TAU=2*Math.PI;
 const segmentDistance=(e,a,b)=>{
@@ -292,10 +292,12 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(!authorizedDamage(p,env.player))return;
   if(p.skill.phantasm&&!p.fragment&&target.life<=0&&env.time>phantasmAt&&random()<.55){
    phantasmAt=env.time+.25;const origin={x:target.x,y:target.y};
+   // A summoned minion fires its own spell; never reuse its summoner's bow crit profile.
    const phantasmSkill={...p.skill,id:'phantasm',source:'spell',baseDamage:{physical:8+(a.level??1)*2},conversion:[],
+    baseCriticalChance:.05,criticalChance:.05,criticalMultiplier:1.5,
     context:{...p.skill.context,tags:['spell','physical','projectile','minion']},active:{tags:['spell','physical','projectile'],sourceKey:'Phantasm'},damageMultiplier:.85,igniteChance:0};
    const mk=(source,aim)=>{const direction=bearing(source,aim);return [{...p,...source,dx:Math.cos(direction),dy:Math.sin(direction),
-    skill:phantasmSkill,leechProxy:'minion',speed:19,remainingRange:10,pierce:Infinity,canReturn:false,pulseEvery:0,hitIds:[],volley:undefined,
+    skill:phantasmSkill,rolls:rolls(),leechProxy:'minion',speed:19,remainingRange:10,pierce:Infinity,canReturn:false,pulseEvery:0,hitIds:[],volley:undefined,
     noCollision:false,burst:0,nova:0,fragment:true,color:'#c4d6cb'}];};
    env.addField({...origin,deploy:'phantasm',mk,radius:.28,color:'#c4d6cb',next:env.time+.15,pulseEvery:.60,until:env.time+4});
   }

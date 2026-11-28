@@ -150,6 +150,8 @@ export function parsePassiveLine(line){
   return [[numeric('esRegenPct',+m[1]/100)],'每秒回復 '+m[1]+'% 能量護盾'];
  if((m=line.match(/^Regenerate (\d+(?:\.\d+)?)(?:(%)(?: of)?)? Life per second$/)))
   return [[numeric(m[2]?'lifeRegenPct':'lifeRegen',+m[1]/(m[2]?100:1))],'每秒回復 '+m[1]+(m[2]??'')+' 生命'];
+ if((m=line.match(/^\+(\d+)% to Critical Strike Multiplier with Bows$/)))
+  return [[numeric('criticalMultiplier:bow:attack',+m[1]/100)],'弓攻擊的暴擊加成 +'+m[1]+'%'];
  if((m=line.match(/^\+(\d+)% to (Global )?Critical Strike Multiplier$/)))
   return [[numeric('criticalMultiplier',+m[1]/100)],'暴擊加成 +'+m[1]+'%'];
  if((m=line.match(/^\+(\d+)% chance to Suppress Spell Damage$/i)))
