@@ -1,6 +1,6 @@
 import {blockStats} from './defence.mjs?v=0.5.21';
 import {equippedStats} from './town-services.mjs?v=0.5.21';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.22';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.23';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.18';
 import {resourceKeystones} from './keystones.mjs?v=0.5.18';
@@ -8,7 +8,7 @@ import {resourceKeystones} from './keystones.mjs?v=0.5.18';
 const baseline=['life','mana','es','evasion','accuracy','armour','move','manaRegen','lifeRegen','lifeRegenPct','esRegenPct','manaRegenFlat',
  'esRecharge','esFasterStart','manaRegenPerSpellBlock','suppress','suppressLucky','suppressPrevented','attackBlock','spellBlock','strength','dexterity','intelligence','lifeWithoutBodyLife',
  'damagePerDex','speedToDamage','bowSpeedToDamage','criticalUnique','criticalFull','reducedCritExtra','skillManaRecover','lowLifeThreshold',
- 'fullLifeThreshold','sixLifeMasteries'];
+ 'fullLifeThreshold','sixLifeMasteries','flaskChargeGain','flaskRecoveryLife','flaskRecoveryMana','flaskPeriodicLife','flaskPeriodicMana'];
 export function applyLoadout(player,town,progression,modifiers,{refill=false}={}){
  const gear=equippedStats(town),{keys,mods,lifeMasteries}=selectedPassives(progression);
  const sum=(stat,kind='flat')=>mods.reduce((a,m)=>a+(m.stat===stat&&m.kind===kind?m.value:0),0);
@@ -69,6 +69,8 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   esRechargeDelay:2/(1+up('esFasterStart')),
   esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),
   lifeRegen:keys.has('zealotsOath')?0:regen()*(rules.eternalYouth?.5:1),esRegen:maximumEnergyShield*sum('esRegenPct')+(keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0),manaRegenMultiplier:Math.max(0,1+up('manaRegen')+sum('manaRegenPerSpellBlock')*block.spellBlock),manaRegenFlat:sum('manaRegenFlat'),
+  flaskConfig:{gain:1+up('flaskChargeGain'),recovery:{life:1+up('flaskRecoveryLife'),mana:1+up('flaskRecoveryMana')},
+   periodic:{life:sum('flaskPeriodicLife'),mana:sum('flaskPeriodicMana')}},
   rules,leechConfig,combatRecovery,defence:{...player.defence,armour,hitArmourMultiplier:keys.has('imbalancedGuard')?2:1,maximumDamageReduction:keys.has('imbalancedGuard')?.5:.9,resistances,maximumResistances,reducedCritExtra:sum('reducedCritExtra'),
    ...block,suppressionPrevented:.5+sum('suppressPrevented'),
    suppressionChance:keys.has('acrobatics')?0:suppression,spellDodge:keys.has('acrobatics')?Math.min(.75,suppression*.5):0,suppressionLucky:!!sum('suppressLucky')}};

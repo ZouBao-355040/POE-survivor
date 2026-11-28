@@ -19,7 +19,7 @@ export function advanceFlaskRecovery(player,flasks,dt){
   const span=Math.min(dt,flask.remaining);
   let remaining=flask.remaining;
   if(span>0&&Number.isFinite(cap)&&Number.isFinite(player[key])&&player.life>0){
-   next[key]=Math.min(cap,next[key]+span*base.amount/base.duration);
+   next[key]=Math.min(cap,next[key]+span*(flask.recoveryAmount??base.amount)/base.duration);
    remaining=next[key]>=cap?0:Math.max(0,flask.remaining-span);
    if(remaining<1e-9)remaining=0;
   }
@@ -27,16 +27,19 @@ export function advanceFlaskRecovery(player,flasks,dt){
  }
  return {player:next,flasks:updated};
 }
-export function autoFlasks(player,flasks,gainedCharges=0){
+export function autoFlasks(player,flasks,gainedCharges=0,periods=0){
  if(!flasks||player.life<=0)return {flasks,used:[]};
  const next={},used=[];
  for(const key of kinds){
   const flask=flasks[key],base=flaskBases[key];
-  const charges=Math.min(base.capacity,flask.charges+gainedCharges);
+  const gain=(gainedCharges+periods*(player.flaskConfig?.periodic?.[key]??0))*(player.flaskConfig?.gain??1);
+  const available=flask.charges+gain;
+  const charges=available>=base.capacity-1e-9?base.capacity:available;
   // A full corresponding resource refuses use without consuming charges.
   // A refused full flask stays armed; there is no percentage threshold.
   if(canRecover(player,key)&&charges===base.capacity&&player[key]<maximum(player,key)){
-   next[key]={charges:charges-base.cost,remaining:base.duration};
+   const recoveryAmount=base.amount*(player.flaskConfig?.recovery?.[key]??1);
+   next[key]={charges:charges-base.cost,remaining:base.duration,...(recoveryAmount===base.amount?{}:{recoveryAmount})};
    used.push(key);
   }else next[key]={...flask,charges};
  }

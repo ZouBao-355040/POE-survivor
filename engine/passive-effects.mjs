@@ -159,6 +159,11 @@ export function parsePassiveLine(line){
  if((m=line.match(/^(\d+)% increased (Evasion Rating and Armour|Armour and Evasion Rating)$/)))return [[numeric('evasion',+m[1]/100,'increased'),numeric('armour',+m[1]/100,'increased')],'閃避值與護甲提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Damage Over Time with Bow Skills$/)))return [[numeric('damageOverTime:bow',+m[1]/100,'increased')],'弓技能的持續傷害提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% faster start of Energy Shield Recharge$/)))return [[numeric('esFasterStart',+m[1]/100,'increased')],'能量護盾充能開始速度加快 '+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased Flask Charges gained$/)))return [[numeric('flaskChargeGain',+m[1]/100,'increased')],'獲得的藥劑充能提高 '+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased (Life|Mana) Recovery from Flasks$/)))
+  return [[numeric('flaskRecovery'+m[2],+m[1]/100,'increased')],(m[2]==='Life'?'生命':'魔力')+'藥劑回復量提高 '+m[1]+'%'];
+ if((m=line.match(/^(Life|Mana) Flasks gain (\d+) Charges? every 3 seconds$/)))
+  return [[numeric('flaskPeriodic'+m[1],+m[2])],(m[1]==='Life'?'生命':'魔力')+'藥劑每 3 秒獲得 '+m[2]+' 次充能'];
  if((m=line.match(/^(\d+)% increased Energy Shield Recharge Rate$/)))return [[numeric('esRecharge',+m[1]/100,'increased')],'能量護盾充能率提高 '+m[1]+'%'];
  if(line==='Projectiles deal 20% increased Damage with Hits and Ailments for each Enemy Pierced')return [[numeric('perPierce',.2)],'每穿透 1 個敵人，此投射物的擊中與異常狀態傷害提高 20%'];
  if(line==='Projectiles deal 20% increased Damage with Hits and Ailments for each time they have Chained')return [[numeric('perChain',.2)],'每連鎖 1 次，此投射物的擊中與異常狀態傷害提高 20%'];

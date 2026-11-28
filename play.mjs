@@ -1,7 +1,7 @@
 import {recoveryLimit} from './engine/resources.mjs?v=0.5.18';
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
-import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.18';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.22';
+import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.23';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.23';
 import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.21';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.14';
@@ -11,12 +11,12 @@ import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs?v=0.5.14';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.22';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.23';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix,gearDefenceLabel} from './engine/town-services.mjs?v=0.5.21';
 import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.10';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.22';
-import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.22';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.22';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.23';
+import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.23';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.23';
 import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.10';
 
 const $=s=>document.querySelector(s);
@@ -642,7 +642,7 @@ function render(){
   tag.dataset.active=String(!blocked&&f.remaining>0);
   tag.dataset.ready=String(!blocked&&f.charges===base.capacity);
   tag.title=blocked?'瓦爾冥約：無法用生命藥劑回復':base.name+' · 充能滿時使用';
-  tag.textContent=(key==='life'?'紅水':'藍水')+' '+f.charges+'/'+base.capacity+(blocked?' · 停用':f.remaining>0?' · 回復中':'');
+  tag.textContent=(key==='life'?'紅水':'藍水')+' '+Math.floor(f.charges+1e-9)+'/'+base.capacity+(blocked?' · 停用':f.remaining>0?' · 回復中':'');
  }
  const n=Math.floor(state.time??0);
  const remaining=talentPoints(state.progression).remaining;

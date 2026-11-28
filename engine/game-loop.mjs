@@ -4,7 +4,7 @@ import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './
 import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.18';
 import {advancePlayerLeech} from './player-leech.mjs?v=0.5.18';
 import {collectGold} from './gem-shop.mjs';
-import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.18';
+import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.23';
 import {distance,moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs?v=0.5.15';
@@ -173,7 +173,10 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  const dropped=[];
  const economy=Number.isSafeInteger(state.gold)&&!state.practice&&!deferLoot;
  for(const e of enemies.filter(e=>e.life<=0)){flaskCharges+=e.flaskChargeReward??1;if(economy&&player.life>0)dropped.push({x:e.x,y:e.y,amount:e.goldReward??1});events.push({type:'kill',target:e.id,credit:e.killCredit,experience:e.experienceReward??0,gold:e.goldReward??1,boss:!!e.boss});addSouls?.(1,time+dt);if(experienceRequired)progression=grantExperience(progression??{},e.experienceReward??0,experienceRequired);}
- if(flasks){const result=autoFlasks(player,flasks,flaskCharges);flasks=result.flasks;for(const resource of result.used)events.push({type:'flask',resource});}
+ if(flasks){
+  // Battle time, not wall time: pausing stops both recovery and charge clocks.
+  const periods=Math.floor((time+dt+1e-8)/3)-Math.floor((time+1e-8)/3);
+  const result=autoFlasks(player,flasks,flaskCharges,periods);flasks=result.flasks;for(const resource of result.used)events.push({type:'flask',resource});}
  let wallet={};
  if(economy&&player.life>0){
   const collected=collectGold(player,state.goldDrops??[],dropped,{all:progression?.pendingChoices>0});
