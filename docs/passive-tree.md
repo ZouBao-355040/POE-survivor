@@ -62,3 +62,7 @@ node scripts/balance-act-one.mjs
 依 [GGG 3.16 規格](https://www.pathofexile.com/forum/view-thread/3186390) 與 [開發者的格擋說明](https://devtrackers.gg/pathofexile/p/65ee2fd1-finally-i-can-now-take-105-of-damage-from-blocked-hits)，成功擊中才計入防止量：從經過傷害承受轉移後的物理分量減去最後實際結算的物理傷害，最少為零。護甲、法術壓抑或格擋（包含側身之擊）可帶來防止量；閃避、躲避、持續傷害及消耗護盾或生命本身不計入。[傷害承受轉移](https://www.reddit.com/r/PathOfExileBuilds/comments/wjn7so/does_divine_shield_apply_to_damage_shifting/) 不算防止，轉成元素傷害後的抗性減傷也不算物理防止量。
 
 每次擊中的防止量會提供 4 秒獨立再生，每秒回復該量的 3% 作為能量護盾。護甲是所有能量護盾回復的額外上限；搭配鬼舞取護甲和閃避中較低者，不倒扣已有護盾。回城、重試與切換關卡清除舊的擊中紀錄；安全區補滿資源仍走原重置流程。
+
+## 緋紅舞蹈（17818）
+
+採 [GGG 3.30 官方主樹](https://github.com/grindinggear/skilltree-export/blob/3.30.0/data.json) 所列三項效果：每層 50% 更少流血傷害、移動不增傷且不能加劇，並使用至多八個最高傷害的有效流血。未點天賦時，每刻只取最強的流血；敵人實際走動的期間有三倍傷害，停在攻擊距離、冰凍或弓手停下瞄準不算移動。流血各自計時，弱層不會把強層覆蓋，強層消失後剩餘弱層能開始生效。現有「放血」的技能基礎數值與持續時間沿用，沒有為此改動一般敵人或頭目血量。

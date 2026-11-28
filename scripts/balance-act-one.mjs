@@ -9,6 +9,7 @@ import {rangerHooks} from '../engine/ranger.mjs';
 import {ModifierStore} from '../engine/modifiers.mjs';
 import {resolveLevelChoice} from '../engine/progression.mjs';
 import {allocateTalent,talentPoints} from '../engine/act-one-talents.mjs';
+import {allocate,points,tracePath} from '../engine/passive-tree.mjs';
 import {applyLoadout} from '../engine/player-loadout.mjs';
 import {rollCurrencyChoices,claimLevelCurrency} from '../engine/currency.mjs';
 import {craftAvailability,craftGear} from '../engine/gear-crafting.mjs';
@@ -18,8 +19,10 @@ const seed=number=>()=>((number=Math.imul(number,1664525)+1013904223|0)>>>0)/429
 const score=g=>g?g.value+(g.affixes??[]).reduce((n,x)=>n+x.value*(x.key==='life'?1:.45),0):0;
 const started={x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}};
 const output=[];
+const checkCrimson=process.env.CHECK_CRIMSON==='1';
+const builds=process.env.CHECK_BLEED==='1'||checkCrimson?['puncture']:['burning-arrow','split-arrow','fireball'];
 
-for(const id of ['burning-arrow','split-arrow','fireball'])for(const selfFound of [false,true]){
+for(const id of builds)for(const selfFound of [false,true]){
  const random=seed(137),lootRandom=seed(1737),inventory=new GemInventory(),modifiers=new ModifierStore();
  inventory.acquire(gemById.get(id));inventory.equip(id,'weapon',0);inventory.setMode(id,'auto');
  if(id!=='fireball'){inventory.acquire(gemById.get('momentum'));inventory.equip('momentum','weapon',1);}
@@ -39,6 +42,15 @@ for(const id of ['burning-arrow','split-arrow','fireball'])for(const selfFound o
  for(const area of actOne){
   if(selfFound&&!state.progression.talents?.length&&talentPoints(state.progression).remaining)
    state={...state,progression:allocateTalent(state.progression,'39821')};
+  if(checkCrimson){
+   let progress=state.progression;
+   for(const node of tracePath(progress,17818).slice(1)){
+    if(progress.talents?.includes(String(node)))continue;
+    if(points(progress).remaining===0)break;
+    progress=allocate(progress,node);
+   }
+   state={...state,progression:progress};
+  }
   const player=applyLoadout(started,town,state.progression,modifiers,{refill:true});
   state=beginTrial({...state,player,flasks:starterFlasks(),zone:'town'},area);
   let bossAt,bossKO,minLife=player.life;
@@ -80,6 +92,7 @@ for(const id of ['burning-arrow','split-arrow','fireball'])for(const selfFound o
  }
  const result={build:id,mode:selfFound?'field gear + crafting':'starter gear',
   cleared:!!state.chapterComplete,maps:state.routeIndex??0,drops,crafts,
+  ...(checkCrimson?{level:state.progression.level,allocated:state.progression.talents?.includes('17818')??false}:{}),
   seconds:rows.reduce((sum,r)=>sum+r.seconds,0),minLife:Math.min(...rows.map(r=>r.minLife))};
  output.push(result);
  if(process.env.VERBOSE_BALANCE==='1'){console.log(result);console.table(rows);}

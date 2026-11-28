@@ -1,6 +1,6 @@
 import {blockStats} from './defence.mjs?v=0.5.18';
 import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.18';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.19';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.18';
 import {resourceKeystones} from './keystones.mjs?v=0.5.18';
@@ -50,7 +50,7 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   resolute:keys.has('resolute'),precise:keys.has('precise'),avatarFire:keys.has('avatarFire'),
   ghostReaver:keys.has('ghostReaver'),eldritchBattery:keys.has('eldritchBattery'),wickedWard:keys.has('wickedWard'),acrobatics:keys.has('acrobatics'),
   elementalOverload:keys.has('elementalOverload'),elementalEquilibrium:keys.has('elementalEquilibrium'),
-  arrowDancing:keys.has('arrowDancing'),windDancer:keys.has('windDancer'),perfectAgony:keys.has('perfectAgony'),pointBlank:keys.has('pointBlank'),ancestralBond:keys.has('ancestralBond'),painAttunement:keys.has('painAttunement'),
+  crimsonDance:keys.has('crimsonDance'),arrowDancing:keys.has('arrowDancing'),windDancer:keys.has('windDancer'),perfectAgony:keys.has('perfectAgony'),pointBlank:keys.has('pointBlank'),ancestralBond:keys.has('ancestralBond'),painAttunement:keys.has('painAttunement'),
   lowLifeThreshold:sum('lowLifeThreshold')||.5,fullLifeThreshold:sum('fullLifeThreshold')||1,
   criticalUnique:sum('criticalUnique'),criticalFull:sum('criticalFull'),skillManaRecover:!!sum('skillManaRecover')};
  const leechConfig={instant:sum('leechInstant')};

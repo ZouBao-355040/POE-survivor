@@ -1,6 +1,6 @@
 import {resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {rows,starts} from './passive-tree-data.mjs?v=0.5.10';
-import {compilePassives,keystones} from './passive-effects.mjs?v=0.5.18';
+import {compilePassives,keystones} from './passive-effects.mjs?v=0.5.19';
 export {starts};
 export const sourceUrl='https://github.com/grindinggear/skilltree-export/blob/3.30.0/data.json';
 export const classNames=Object.freeze({Ranger:'遊俠',Marauder:'野蠻人',Witch:'女巫',Duelist:'決鬥者',Templar:'聖堂武僧',Shadow:'暗影刺客',Scion:'貴族'});
