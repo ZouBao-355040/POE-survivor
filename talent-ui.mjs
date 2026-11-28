@@ -1,5 +1,5 @@
 import {resolveCharacterClass} from './engine/character.mjs?v=0.5.10';
-import {nodes,points,treeStatus,tracePath,classNames,sourceUrl} from './engine/passive-tree.mjs?v=0.5.27';
+import {nodes,points,treeStatus,tracePath,classNames,sourceUrl} from './engine/passive-tree.mjs?v=0.5.28';
 
 export function renderTalentTree(container,{progression,onAllocate}){
  const doc=container.ownerDocument;

@@ -1,3 +1,4 @@
+import {skillDotRate} from './dot.mjs?v=0.5.28';
 import {poisonApplication} from './poison.mjs?v=0.5.26';
 import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
@@ -60,8 +61,8 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
  }
  function applyDot(p,target,env,type,rate,duration,stack=false,key=p.skill.id){
   if(rate<=0||env.player.rules?.avatarFire&&type!=='fire'||!authorizedDamage(p,env.player))return;
-  const tags=p.skill.context?.tags??[];
-  rate*=modifiers.calculate(1,['damageOverTime',type+'Damage',...(['fire','cold','lightning'].includes(type)?['elementalDamage']:[])],{tags});
+  rate=skillDotRate(rate,type,modifiers,p.skill.context);
+  if(rate<=0)return;
   const index=env.enemies.findIndex(e=>e.id===target.id);
   if(index<0)return;
   const t=env.enemies[index],dots=(t.dots??[]).filter(x=>stack||x.key!==key);
@@ -278,7 +279,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(bleed)t={...t,dots:[...(t.dots??[]),bleed]};
   const poison=poisonApplication({result,skill:s,player,modifiers,time,mult,chainBonus,pierceBonus,minion:p.leechProxy==='minion',random});
   if(poison)t={...t,dots:[...(t.dots??[]),poison]};
-  if(active.drain&&!player.rules?.avatarFire){added('chaos',active.baseDot*(active.gemDotScale??1)*mult*modifiers.calculate(1,['damageOverTime','chaosDamage'],p.skill.context),active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=recover(player,'life',active.baseDot*.025).life;}
+  if(active.drain&&!player.rules?.avatarFire){added('chaos',skillDotRate(active.baseDot*(active.gemDotScale??1)*mult,'chaos',modifiers,p.skill.context),active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=recover(player,'life',active.baseDot*.025).life;}
   if(result.canInflictHitAilments&&result.damage?.cold>0&&(result.hit.critical||random()<(active.freezeChance??0)))t={...t,frozenUntil:Math.max(t.frozenUntil??0,time+.28*Math.max(.2,mult))};
   if(result.canInflictHitAilments&&result.damage?.lightning>0&&(result.hit.critical||active.guaranteedShock))t={...t,shockedUntil:time+1.5};
   if(active.ensnare&&!p.secondary&&(p.pierce??0)===0&&(p.chain??0)===0&&(p.fork??0)===0)t={...t,ensnaredUntil:time+1.5};

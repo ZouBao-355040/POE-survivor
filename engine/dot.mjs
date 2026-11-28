@@ -15,6 +15,15 @@ export function mitigateDot(rates,defender={}){
 export function dotRate(base,{increased=0,dotMultiplier=0,more=[]}={}){
  return Math.max(0,base*(1+increased)*(1+dotMultiplier)*more.reduce((a,b)=>a*b,1));
 }
+// Non-ailment skill DoT uses the skill effect's type, not the triggering hit's damage.
+export function skillDotRate(base,type,modifiers,context={}){
+ const tags=(context.tags??[]).filter(t=>t!=='hit');
+ const dotContext={...context,tags};
+ const elemental=['fire','cold','lightning'].includes(type);
+ const scale=modifiers.calculate(1,['damageOverTime',type+'Damage',...(elemental?['elementalDamage']:[])],dotContext);
+ const multiplier=tags.includes('minion')?1:Math.max(0,1+modifiers.calculate(0,['dotMultiplier',type+'DotMultiplier'],dotContext));
+ return Math.max(0,base*scale*multiplier);
+}
 // Integrate constant-rate intervals, including exact expiration boundaries.
 export function integrateDot(instances,start,end,defender={}){
  if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)throw new RangeError('Invalid interval');

@@ -53,6 +53,12 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^\+(\d+)% to (?:(Physical|Cold|Chaos) )?Damage over Time Multiplier$/))){
+  const type=m[2]?.toLowerCase(),stat=type?type+'DotMultiplier':'dotMultiplier';
+  return [[numeric(stat,+m[1]/100)],({physical:'物理',cold:'冰冷',chaos:'混沌'}[type]??'')+'持續傷害加成 +'+m[1]+'%'];
+ }
+ if((m=line.match(/^(\d+)% increased Damage over Time$/)))
+  return [[numeric('damageOverTime',+m[1]/100,'increased')],'持續傷害提高 '+m[1]+'%'];
  if((m=line.match(/^(Attacks have )?(\d+)% chance to Ignite$/)))
   return [[numeric('igniteChance'+(m[1]?':attack':''),+m[2]/100)],(m[1]?'攻擊':'')+'有 '+m[2]+'% 機率造成點燃'];
  if((m=line.match(/^\+(\d+)% to Fire Damage over Time Multiplier( with Attack Skills)?$/)))
