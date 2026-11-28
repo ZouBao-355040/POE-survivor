@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {checkpointKey} from '../engine/checkpoint.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
 const launchOptions={headless:true};
 if(process.env.CHROMIUM_EXECUTABLE)launchOptions.executablePath=process.env.CHROMIUM_EXECUTABLE;
@@ -105,6 +106,31 @@ async function verify(viewport,mobile){
  await btn(rewardOrb+' ×1',reward).click();
  assert.equal(await reward.isVisible(),false);
  const inTown=await snapshot();await page.clock.runFor(1800);assert.deepEqual(await snapshot(),inTown);
+ const readSave=()=>page.evaluate(key=>localStorage.getItem(key),checkpointKey);
+ const saveBeforePractice=await readSave();
+ assert.ok(saveBeforePractice);
+ const townGoldBeforePractice=await text('#gold-hud');
+ const enterPractice=async()=>{
+  await btn('寶石').click();
+  await btn('技能試射',bag).click();
+  await bag.getByRole('searchbox').fill('Split Arrow');
+  await btn(/^裂化箭矢 以較寬/,bag).click();
+  await page.clock.runFor(100);
+  assert.match(await text('#status'),/試射場/);
+ };
+ const exitPractice=async()=>{
+  await btn('選單').click();
+  assert.equal(await btn('重新開始').isVisible(),false);
+  assert.equal(await btn('確認重開本局').isVisible(),false);
+  const exit=btn('離開試射 · 返回主線');
+  if(mobile)await exit.tap();else await exit.click();
+  await page.clock.runFor(32);
+ };
+ await enterPractice();await enterPractice();await exitPractice();
+ assert.ok(await page.getByRole('heading',{name:'獅眼守望',exact:true}).isVisible());
+ assert.equal(await text('#gold-hud'),townGoldBeforePractice);
+ assert.equal(await readSave(),saveBeforePractice,'practice and changing practice skill must not replace campaign save');
+ console.log('技能試射：同一分頁從城鎮返回，切換試射技能也不會覆蓋主線存檔。');
  const services=page.locator('#town-dialog');
  await btn(/^天賦( \d+)?$/).click();
  assert.equal(await services.locator('[data-talent-id="50459"]').getAttribute('data-talent-state'),'start');
@@ -296,6 +322,7 @@ async function verify(viewport,mobile){
   assert.match(await text('#zone-objective'),/雕紋 0\/3/);
   console.log('實戰瀏覽器流程：看得到怒炎之使血條，擊殺後進入炙熱鹽沼。');
  }
+ const battleBeforePractice=(await text('#status')).split(' · ')[0];
  await btn('寶石').click();
  assert.ok(await btn(/^裂化箭矢 · 等級 1/,bag).isVisible());
  await btn('PoE 寶石圖鑑',bag).click();
@@ -352,6 +379,9 @@ async function verify(viewport,mobile){
   assert.ok(draw.swirls>=3,'actual canvas should render the burst');
   assert.equal(draw.landingMarkers>0,payload,'only Cloudburst marks an airborne landing');
  }
+ await exitPractice();
+ assert.ok((await text('#status')).startsWith(battleBeforePractice),'exit must also restore combat progress');
+ assert.match(await text('#hint'),/^燃燒箭矢/);
  assert.deepEqual(failures,[]);
  console.log((mobile?'手機':'桌面')+' '+viewport.width+'×'+viewport.height+'：開場普攻、教學、城門頭目、進城、購買、賭裝、倉庫存取、主線寶石、回城結算、固定通貨倉與打造、有效天賦、穿戴插槽、手動施放與兩種龍捲射擊通過。');
  await page.close();

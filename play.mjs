@@ -24,7 +24,7 @@ import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from
 const $=s=>document.querySelector(s);
 const panel=$('#gem-panel'),toggle=$('#gems'),canvas=$('canvas'),ctx=canvas.getContext('2d'),status=$('#status'),reward=$('#reward');
 const town=$('#town'),townDialog=$('#town-dialog'),guideChoice=$('#guide-choice'),gameMenu=$('#game-menu');
-const modifiers=new ModifierStore(),enemyModifiers=new ModifierStore();
+let modifiers=new ModifierStore(),enemyModifiers=new ModifierStore();
 const names={Bow:'弓',Wand:'法杖',Claw:'爪',Shield:'盾牌','One Hand Sword':'單手劍','One Hand Axe':'單手斧',Unarmed:'空手'};
 const socketNames={weapon:'武器',body:'胸甲',helmet:'頭盔',gloves:'手套',boots:'鞋子'};
 const gemName=id=>gemById.get(id)?.name??'普通攻擊';
@@ -43,6 +43,7 @@ function card(g,fn,selected=false,training=false){
  return b;
 }
 let inventory,hooks,state,townItems,activeCurrencyChoices=null,guide=false,picked=null,tab='owned',search='',filter='all';
+let suspendedCampaign=null;
 let shopTab='active',shopSearch='',shopCompatible=true,shopShowLocked=false;
 let dir={x:0,y:0},facing={x:1,y:0},manualQueued=false,origin=null,last=performance.now(),acc=0,toastUntil=0;
 const keys=new Set();
@@ -98,14 +99,16 @@ function resumeCheckpoint(){
  guideChoice.close();clearInput();renderVersion();return true;
 }
 function newRun(){
- if(!saves.clear()&&startupSave.status==='ready'){
-  saveMessage='存檔已由其他分頁更改。請重開此頁確認，未刪除任何存檔。';
+ if(state.practice)return;
+ const cleared=saves.clear();
+ if(!cleared&&['ready','empty'].includes(startupSave.status)){
+  saveMessage='無法清除存檔。其他分頁可能已儲存，或瀏覽器未允許儲存。未重開本局。';
   renderVersion();
   const msg=$('#checkpoint-start-message');msg.hidden=false;msg.textContent=saveMessage;
   return;
  }
- startupSave={status:startupSave.status==='ready'?'empty':startupSave.status};
- replaceRequested=false;reset();setupStartup();
+ if(cleared)startupSave={status:'empty'};
+ saveMessage='';replaceRequested=false;reset();setupStartup();
 }
 
 function clearInput(){manualQueued=false;keys.clear();origin=null;dir={x:0,y:0};}
@@ -257,19 +260,32 @@ function renderGems(){
  if(tools.children.length)panel.append(tools);
 }
 function practice(id){
- const active=gemById.get(id);if(active.kind!=='active')return;
- if(state.zone==='town')saveTown();
- closeGems();reset(false);
+ const active=gemById.get(id);if(active?.kind!=='active')return;
+ closeGems();
+ if(!state.practice){
+  if(state.zone==='town')saveTown();
+  suspendedCampaign={state,townItems,inventory,hooks,modifiers,enemyModifiers,activeCurrencyChoices,facing,craftSelection,shopTab,shopSearch,shopCompatible,shopShowLocked,
+   toast:$('#toast').textContent,toastUntil};
+ }
+ modifiers=new ModifierStore();enemyModifiers=new ModifierStore();reset(false);
  inventory=new GemInventory();inventory.acquire(active);inventory.equip(active.id,'weapon',0);inventory.setMode(active.id,'auto');hooks=rangerHooks({modifiers,inventory});
  state.practice=true;state.zone='practice';
  for(const candidate of catalog.filter(s=>s.kind==='support'&&compatible(active,s)))inventory.acquire(candidate);
  state.enemies=[{id:'dummy-1',x:6,y:0,life:2000,maximumLife:2000,evasion:0,defence:{},radius:.4,speed:0},
  {id:'dummy-2',x:8,y:1.75,life:2000,maximumLife:2000,evasion:0,defence:{},radius:.4,speed:0},
  {id:'dummy-3',x:8,y:-1.75,life:2000,maximumLife:2000,evasion:0,defence:{},radius:.4,speed:0}];
- notify('試射場：'+active.name+'。重開可回到絕望岩灘。');
+ notify('試射場：'+active.name+'。從選單離開試射，即可回到主線。');
+}
+function leavePractice(){
+ if(!state.practice||!suspendedCampaign)return;
+ const saved=suspendedCampaign;
+ suspendedCampaign=null;
+ ({state,townItems,inventory,hooks,modifiers,enemyModifiers,activeCurrencyChoices,facing,craftSelection,shopTab,shopSearch,shopCompatible,shopShowLocked,toastUntil}=saved);
+ $('#toast').textContent=saved.toast;
+ closeMenu();renderVersion();
 }
 function renderLibrary(){
- const text=tab==='practice'?'用木樁試射任一已接入技能，並從背包搭配相容輔助。開始會結束這一局。':'收錄 PoE 1 3.30 投射物主動寶石及直接相關的輔助。這是倖存者版改編，並非原作逐項數值複製。';
+ const text=tab==='practice'?'用木樁試射任一已接入技能，並從背包搭配相容輔助。主線會暫停，從選單離開試射即可返回。同一分頁才會保留未存進度。':'收錄 PoE 1 3.30 投射物主動寶石及直接相關的輔助。這是倖存者版改編，並非原作逐項數值複製。';
  panel.append(div(text,'muted'));
  const toolbar=div('','toolbar'),input=document.createElement('input');input.type='search';input.placeholder='搜尋繁中或英文名稱';input.value=search;input.setAttribute('aria-label','搜尋寶石');
  toolbar.append(input);
@@ -556,12 +572,14 @@ townDialog.addEventListener('close',()=>{townDialog.classList.remove('craft-dial
 reset(false);setupStartup();guideChoice.showModal();updates.check();
 const menuStart=$('#menu-start'),restart=$('#restart'),confirmRestart=$('#confirm-restart');
 function restartPhase(confirming){
- restart.hidden=confirming;confirmRestart.hidden=!confirming;
+ restart.hidden=confirming||state.practice;confirmRestart.hidden=!confirming||state.practice;
+ $('#exit-practice').hidden=!state.practice;
  $('#restart-warning').hidden=!confirming;
 }
 $('#menu-open').onclick=()=>{clearInput();acc=0;restartPhase(false);renderVersion();gameMenu.showModal();};
 function closeMenu(){gameMenu.close();clearInput();acc=0;$('#menu-open').focus();}
 menuStart.onclick=closeMenu;
+ $('#exit-practice').onclick=leavePractice;
 restart.onclick=()=>{restartPhase(true);confirmRestart.focus();};
 confirmRestart.onclick=newRun;
 $('#version-badge').onclick=()=>$('#menu-open').click();

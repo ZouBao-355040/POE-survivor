@@ -62,6 +62,17 @@ try {
  assert.equal(await page.locator('#gold-hud').innerText(),'金幣 17');
  assert.equal(await btn('有新版').isVisible(),false);
  assert.deepEqual(failures,[]);
+ await btn('選單').tap();
+ await btn('重新開始').tap();
+ assert.match(await page.locator('#restart-warning').innerText(),/刪除.*獅眼守望存檔/);
+ await btn('回到遊戲').tap();
+ assert.ok(await page.evaluate(key=>localStorage.getItem(key),checkpointKey));
+ await btn('選單').tap();
+ await btn('重新開始').tap();
+ await btn('確認重開本局').tap();
+ assert.equal(await page.evaluate(key=>localStorage.getItem(key),checkpointKey),null);
+ assert.ok(await btn('跳過教學').isVisible());
+ console.log('只有確認重開主線才會清除獅眼守望存檔。');
  console.log('版本提示：前景事件才檢查、有冷卻、可略過；使用測試版號更新並重新讀取獅眼守望。');
 
  const denied=await browser.newPage({viewport,hasTouch:true,isMobile:true});
