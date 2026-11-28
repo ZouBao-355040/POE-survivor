@@ -115,7 +115,6 @@ test('Replenishing Remedies grants both periodic charges on simulation boundarie
  const vaal=stepWorld({...a,player:{...player,rules:{...player.rules,vaalPact:true}}},.02);
  assert.deepEqual(vaal.events.filter(e=>e.type==='flask').map(e=>e.resource),['mana']);
  assert.equal(vaal.flasks.life.charges,21);assert.equal(vaal.flasks.life.remaining,0);
- assert.equal(nodes.get(41137).implemented,false); // No player-hit trigger yet.
  assert.equal(nodes.get(41420).implemented,false); // No partial unlock for mixed flask effects.
 });
 

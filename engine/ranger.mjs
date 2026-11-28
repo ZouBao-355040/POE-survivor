@@ -1,3 +1,4 @@
+import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
 import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.18';
 import {addHitLeech} from './player-leech.mjs?v=0.5.18';
@@ -259,6 +260,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const result=resolveAttackImpact({attacker:{...p.attacker,accuracy:player.accuracy,maximumLife:player.maximumLife,life:player.life,rules:p.leechProxy==='minion'?{...player.rules,perfectAgony:false}:player.rules},target:{...target,combatResistances:exposure},skill:s,modifiers,rolls:p.rolls,combatTime:time});
   let t=result.target;delete t.combatResistances;
   if(!result.hit.hit||result.mitigation?.blocked)return t;
+  recordFlaskHit(player,p,time);
   recoverOnAttackHit(player,p);
   addHitLeech(player,p,result,modifiers);
   if(player.rules?.elementalOverload&&result.hit.critical)overloadUntil.set(p.skill.id,time+8);

@@ -4,7 +4,7 @@ import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './
 import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.18';
 import {advancePlayerLeech} from './player-leech.mjs?v=0.5.18';
 import {collectGold} from './gem-shop.mjs';
-import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.23';
+import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.24';
 import {distance,moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs?v=0.5.15';
@@ -176,7 +176,14 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(flasks){
   // Battle time, not wall time: pausing stops both recovery and charge clocks.
   const periods=Math.floor((time+dt+1e-8)/3)-Math.floor((time+1e-8)/3);
-  const result=autoFlasks(player,flasks,flaskCharges,periods);flasks=result.flasks;for(const resource of result.used)events.push({type:'flask',resource});}
+  const result=autoFlasks(player,flasks,flaskCharges,periods);flasks=result.flasks;
+  delete player.pendingLifeFlaskCharges;
+  for(const resource of result.used){
+   const fraction=player.flaskConfig?.lifeOnUse??0;
+   if(fraction>0)player=recover(player,'life',player.maximumLife*fraction);
+   events.push({type:'flask',resource});
+  }
+ }else delete player.pendingLifeFlaskCharges;
  let wallet={};
  if(economy&&player.life>0){
   const collected=collectGold(player,state.goldDrops??[],dropped,{all:progression?.pendingChoices>0});

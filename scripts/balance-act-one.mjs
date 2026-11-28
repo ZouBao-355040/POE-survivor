@@ -16,7 +16,7 @@ import {craftAvailability,craftGear} from '../engine/gear-crafting.mjs';
 import {newTownServices,emptyBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,gearSlots} from '../engine/town-services.mjs';
 
 const seed=number=>()=>((number=Math.imul(number,1664525)+1013904223|0)>>>0)/4294967296;
-const checkGuard=process.env.CHECK_GUARD==='1',checkYouth=process.env.CHECK_YOUTH==='1',checkFlasks=process.env.CHECK_FLASKS==='1';
+const checkGuard=process.env.CHECK_GUARD==='1',checkYouth=process.env.CHECK_YOUTH==='1',checkFlasks=Number(process.env.CHECK_FLASKS??0);
 const score=g=>g?g.value+(g.affixes??[]).reduce((n,x)=>n+x.value*(x.key==='life'?1:.45),0)+(checkGuard?.3*(g.baseDefence?.armour??0)+.5*(g.baseDefence?.energyShield??0):0):0;
 const started={x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}};
 const output=[];
@@ -27,7 +27,7 @@ for(const id of builds)for(const selfFound of checkGuard||checkYouth||checkFlask
  const random=seed(137),lootRandom=seed(1737),inventory=new GemInventory(),modifiers=new ModifierStore();
  inventory.acquire(gemById.get(id));inventory.equip(id,'weapon',0);inventory.setMode(id,'auto');
  if(id!=='fireball'){inventory.acquire(gemById.get('momentum'));inventory.equip('momentum','weapon',1);}
- let town=newTownServices({starter:true}),drops=0,crafts=0,guardAreas=0,youthAreas=0,flaskAreas=0,flaskUses=0;
+ let town=newTownServices({starter:true}),drops=0,crafts=0,guardAreas=0,youthAreas=0,flaskAreas=0,flaskUses=0,flaskHits=0;
  let state={player:started,zone:'town',gold:0,progression:{level:2,passivePoints:1},flasks:starterFlasks(),pendingLoot:emptyBattleLoot()};
  const rows=[];
  const opts={...rangerHooks({modifiers,inventory,random}),enemyModifiers:new ModifierStore(),random,manaRegen:2.85,
@@ -45,7 +45,7 @@ for(const id of builds)for(const selfFound of checkGuard||checkYouth||checkFlask
    state={...state,progression:allocateTalent(state.progression,'39821')};
   if(checkCrimson||checkGuard||checkYouth||checkFlasks){
    let progress=state.progression;
-   for(const node of tracePath(progress,checkFlasks?50690:checkYouth?21650:checkGuard?24720:17818).slice(1)){
+   for(const node of tracePath(progress,checkFlasks===2?41137:checkFlasks?50690:checkYouth?21650:checkGuard?24720:17818).slice(1)){
     if(progress.talents?.includes(String(node)))continue;
     if(points(progress).remaining===0)break;
     progress=allocate(progress,node);
@@ -55,14 +55,16 @@ for(const id of builds)for(const selfFound of checkGuard||checkYouth||checkFlask
   const player=applyLoadout(started,town,state.progression,modifiers,{refill:true});
   if(checkGuard&&player.defence.hitArmourMultiplier===2&&player.defence.armour>0)guardAreas++;
   if(checkYouth&&player.rules.eternalYouth)youthAreas++;
-  if(checkFlasks&&player.flaskConfig?.periodic.mana>0)flaskAreas++;
+  if(checkFlasks&&(checkFlasks===2?player.flaskConfig?.lifeOnHit:player.flaskConfig?.periodic.mana)>0)flaskAreas++;
   state=beginTrial({...state,player,flasks:starterFlasks(),zone:'town'},area);
   let bossAt,bossKO,minLife=player.life;
   for(let i=0;i<18000&&!state.dead&&state.encounter.phase!=='cleared';i++){
    claimChoices();
    const g=state.encounter.glyphs.find(g=>!g.taken);
    const dir=g?{x:g.x-state.player.x,y:g.y-state.player.y}:{x:Math.cos(i/54),y:Math.sin(i/54)};
+   const flaskHitReadyAt=state.player.flaskHitReadyAt;
    state=stepTrial(state,.02,{...opts,direction:dir,castPlan:inventory.castPlan()});
+   if(checkFlasks===2&&Number.isFinite(state.player.flaskHitReadyAt)&&state.player.flaskHitReadyAt!==flaskHitReadyAt)flaskHits++;
    minLife=Math.min(minLife,state.player.life);
    if(checkYouth&&Number.isFinite(state.player.lifeRechargeStarted))lifeRechargeSeen=true;
    for(const e of state.events??[]){
@@ -72,7 +74,7 @@ for(const id of builds)for(const selfFound of checkGuard||checkYouth||checkFlask
      if(selfFound)state=queueTrialLoot(state,e,{random:lootRandom});
     }
     if(e.type==='boss-arrives')bossAt=state.time;
-    if(checkFlasks&&e.type==='flask'&&state.player.flaskConfig?.periodic.mana>0)flaskUses++;
+    if(checkFlasks&&e.type==='flask'&&(checkFlasks===2?state.player.flaskConfig?.lifeOnHit:state.player.flaskConfig?.periodic.mana)>0)flaskUses++;
    }
   }
   rows.push({area:area.name,seconds:Math.round(state.time),bossSeconds:bossKO!==undefined&&bossAt!==undefined?Math.round(bossKO-bossAt):null,minLife:Math.round(minLife),phase:state.encounter.phase});
@@ -102,9 +104,10 @@ for(const id of builds)for(const selfFound of checkGuard||checkYouth||checkFlask
   ...(checkGuard?{level:state.progression.level,guardAreas,armour:state.player.defence.armour,energyShield:state.player.maximumEnergyShield}:{}),
   ...(checkYouth?{youthAreas,level:state.progression.level}:{}),
   ...(checkFlasks?{flaskAreas,flaskUses,level:state.progression.level}:{}),
+  ...(checkFlasks===2?{flaskHits}:{}),
   seconds:rows.reduce((sum,r)=>sum+r.seconds,0),minLife:Math.min(...rows.map(r=>r.minLife))};
  output.push(result);
  if(process.env.VERBOSE_BALANCE==='1'){console.log(result);console.table(rows);}
 }
 console.table(output);
-if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||checkGuard&&!r.guardAreas||checkYouth&&!r.youthAreas||checkFlasks&&(!r.flaskAreas||!r.flaskUses)||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;
+if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||checkGuard&&!r.guardAreas||checkYouth&&!r.youthAreas||checkFlasks&&(!r.flaskAreas||!r.flaskUses)||checkFlasks===2&&!r.flaskHits||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;

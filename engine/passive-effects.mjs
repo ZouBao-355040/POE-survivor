@@ -159,6 +159,14 @@ export function parsePassiveLine(line){
  if((m=line.match(/^(\d+)% increased (Evasion Rating and Armour|Armour and Evasion Rating)$/)))return [[numeric('evasion',+m[1]/100,'increased'),numeric('armour',+m[1]/100,'increased')],'閃避值與護甲提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Damage Over Time with Bow Skills$/)))return [[numeric('damageOverTime:bow',+m[1]/100,'increased')],'弓技能的持續傷害提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% faster start of Energy Shield Recharge$/)))return [[numeric('esFasterStart',+m[1]/100,'increased')],'能量護盾充能開始速度加快 '+m[1]+'%'];
+ if(line==='Life Flasks gain a Charge when you hit an Enemy, no more than once each second')
+  return [[numeric('flaskLifeOnHit',1)],'你的擊中使生命藥劑獲得 1 次充能，每秒最多一次'];
+ if((m=line.match(/^Recover (\d+)% of Life when you use a Flask$/)))
+  return [[numeric('flaskLifeOnUse',+m[1]/100)],'使用藥劑時，回復 '+m[1]+'% 生命'];
+ if((m=line.match(/^(\d+)% increased Flask Effect Duration$/)))
+  return [[numeric('flaskDuration',+m[1]/100,'increased')],'藥劑效果持續時間提高 '+m[1]+'%'];
+ if((m=line.match(/^Flasks applied to you have (\d+)% increased Effect$/)))
+  return [[numeric('flaskEffect',+m[1]/100,'increased')],'你受到的藥劑效果提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Flask Charges gained$/)))return [[numeric('flaskChargeGain',+m[1]/100,'increased')],'獲得的藥劑充能提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased (Life|Mana) Recovery from Flasks$/)))
   return [[numeric('flaskRecovery'+m[2],+m[1]/100,'increased')],(m[2]==='Life'?'生命':'魔力')+'藥劑回復量提高 '+m[1]+'%'];

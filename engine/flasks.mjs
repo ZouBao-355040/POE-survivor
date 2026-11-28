@@ -1,4 +1,13 @@
 import {canRecover} from './resources.mjs?v=0.5.18';
+import {damageProxy} from './combat-recovery.mjs?v=0.5.18';
+
+// Called only after a resolved, unblocked hit, not on projectile collision.
+export function recordFlaskHit(player,shot,at){
+ const amount=player.flaskConfig?.lifeOnHit??0;
+ if(!(amount>0&&player.life>0)||damageProxy(shot)||at<(player.flaskHitReadyAt??-Infinity)-1e-9)return;
+ player.flaskHitReadyAt=at+1;
+ player.pendingLifeFlaskCharges=(player.pendingLifeFlaskCharges??0)+amount;
+}
 
 // PoE 1 starter bases. The full-charge enchant is granted to recovery flasks in this game.
 export const flaskBases=Object.freeze({
@@ -32,14 +41,14 @@ export function autoFlasks(player,flasks,gainedCharges=0,periods=0){
  const next={},used=[];
  for(const key of kinds){
   const flask=flasks[key],base=flaskBases[key];
-  const gain=(gainedCharges+periods*(player.flaskConfig?.periodic?.[key]??0))*(player.flaskConfig?.gain??1);
+  const gain=(gainedCharges+(key==='life'?(player.pendingLifeFlaskCharges??0):0)+periods*(player.flaskConfig?.periodic?.[key]??0))*(player.flaskConfig?.gain??1);
   const available=flask.charges+gain;
   const charges=available>=base.capacity-1e-9?base.capacity:available;
   // A full corresponding resource refuses use without consuming charges.
   // A refused full flask stays armed; there is no percentage threshold.
   if(canRecover(player,key)&&charges===base.capacity&&player[key]<maximum(player,key)){
-   const recoveryAmount=base.amount*(player.flaskConfig?.recovery?.[key]??1);
-   next[key]={charges:charges-base.cost,remaining:base.duration,...(recoveryAmount===base.amount?{}:{recoveryAmount})};
+   const recoveryAmount=base.amount*(player.flaskConfig?.recovery?.[key]??1)*(player.flaskConfig?.effect??1);
+   next[key]={charges:charges-base.cost,remaining:base.duration*(player.flaskConfig?.duration??1),...(recoveryAmount===base.amount?{}:{recoveryAmount})};
    used.push(key);
   }else next[key]={...flask,charges};
  }
