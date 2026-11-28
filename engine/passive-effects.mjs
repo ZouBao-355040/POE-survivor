@@ -53,6 +53,8 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^Projectiles gain Damage as they travel farther, dealing up\s+to (\d+)% increased Damage with Hits to targets$/)))
+  return [[numeric('longshot:projectile',+m[1]/100)],'投射物飛行越遠，擊中傷害最多提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Totem Placement speed$/i)))
   return [[numeric('totemPlacementSpeed',+m[1]/100,'increased')],'圖騰放置速度提高 '+m[1]+'%'];
  if((m=line.match(/^Attack Skills have \+(\d+) to maximum number of Summoned Ballista Totems$/)))
@@ -243,7 +245,11 @@ export function parsePassiveLine(line){
  return null;
 }
 export function compilePassives(lines){
- const parts=lines.flatMap(line=>line.split('\n')).filter(Boolean).map(line=>({raw:line,result:parsePassiveLine(line)}));
+ const parts=lines.flatMap(raw=>{
+  // Some individual exported stats are hard-wrapped by GGG; parse the whole stat before splitting a multi-stat entry.
+  const result=parsePassiveLine(raw);
+  return result?[{raw,result}]:raw.split('\n').filter(Boolean).map(raw=>({raw,result:parsePassiveLine(raw)}));
+ });
  return {available:parts.length>0&&parts.every(p=>p.result),mods:parts.flatMap(p=>p.result?.[0]??[]),
   effects:parts.map(p=>p.result?.[1]??p.raw),missing:parts.filter(p=>!p.result).map(p=>p.raw)};
 }

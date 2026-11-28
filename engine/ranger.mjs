@@ -1,4 +1,4 @@
-import {skillDotRate} from './dot.mjs?v=0.5.32';
+import {skillDotRate} from './dot.mjs?v=0.5.33';
 import {poisonApplication} from './poison.mjs?v=0.5.29';
 import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
@@ -9,11 +9,11 @@ import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
 import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.18';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.32';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.33';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
-import {mitigateDot} from './dot.mjs?v=0.5.32';
+import {mitigateDot} from './dot.mjs?v=0.5.33';
 
 const TAU=2*Math.PI;
 const segmentDistance=(e,a,b)=>{
@@ -255,10 +255,14 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   const pierceBonus=modifiers.calculate(0,'perPierce',p.skill.context)*(p.piercedBefore??0);
   if(active.pulseDecay)mult*=Math.max(.15,1-(p.age??0)/(active.projectileLifetime??.56)*.85);
   const distanceTraveled=p.distanceTravelled??0;
+  // This is traveled path length, not range to the shooter, and never an ailment modifier.
+  const longshot=p.leechProxy!=='minion'&&active.tags?.includes('projectile')?
+   modifiers.calculate(0,'longshot',p.skill.context)*Math.max(0,Math.min(1,(distanceTraveled-3.5)/3.5)):0;
   const pointBlank=(p.skill.pointBlank||player.rules?.pointBlank&&p.skill.source==='attack'&&active.tags.includes('projectile'))?Math.max(.7,1.3-(distanceTraveled/14)*.6):1;
   let s={...p.skill,increasedProjectileDamage:(p.skill.increasedProjectileDamage??0)+chainBonus+pierceBonus,damageMultiplier:(p.skill.damageMultiplier??1)*mult,
    elementalOverloadActive:player.rules?.elementalOverload&&(overloadUntil.get(p.skill.id)??0)>time,
    hitDamageMultiplier:(p.skill.hitDamageMultiplier??1)*pointBlank,
+   increasedHitDamage:(p.skill.increasedHitDamage??0)+longshot,
    criticalChance:p.phaseDone&&active.sourceKey==='IceSpear'?Math.min(1,p.skill.criticalChance*7):p.skill.criticalChance,
    criticalMultiplier:p.skill.criticalMultiplier+(p.phaseDone&&active.sourceKey==='IceSpear'?.3:0)};
   const exposure=target.exposureUntil>time?{...target.defence?.resistances,...Object.fromEntries(elements.map(type=>[type,(target.defence?.resistances?.[type]??0)-(target.exposed?.includes(type)?.25:0)]))}:undefined;
@@ -304,7 +308,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
   if(p.secondary)return;
   if(p.skill.mirage&&!p.fragment&&!env.findField(f=>f.deploy==='archer')){
    const mk=(source,aim)=>{const angle=bearing(source,aim);return [{...p,...source,dx:Math.cos(angle),dy:Math.sin(angle),
-    remainingRange:Math.max(10,p.speed*.55),leechProxy:'mirage',fragment:true,delay:0,hitIds:[],volley:undefined,canReturn:false,skill:skillDamage(p.skill,.42)}];};
+    remainingRange:Math.max(10,p.speed*.55),distanceTravelled:0,age:0,leechProxy:'mirage',fragment:true,delay:0,hitIds:[],volley:undefined,canReturn:false,skill:skillDamage(p.skill,.42)}];};
    env.addField({x:env.player.x,y:env.player.y,deploy:'archer',mk,radius:.27,color:'#b1c7ca',next:env.time+.65,pulseEvery:.85,until:env.time+3.5*(1+modifiers.calculate(0,'mirageDuration',p.skill.context))});
   }
   if(p.skill.windburst&&walked>=10){walked=0;const q={...p,pulseEvery:0,fragment:true,skill:skillDamage(p.skill,.8)};for(const shot of radial(q,6,p.speed*.18,p.heading))env.spawn(shot);paintDormant(p,env,1.65,.2);}

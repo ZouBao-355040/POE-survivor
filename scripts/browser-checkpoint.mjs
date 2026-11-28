@@ -8,25 +8,25 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 const url=process.env.GAME_URL??'http://127.0.0.1:8173/';
 const viewport={width:412,height:892};
 const page=await browser.newPage({viewport,hasTouch:true,isMobile:true,ignoreHTTPSErrors:true});
-let marker='0.5.32',requests=0;
+let marker='0.5.33',requests=0;
 const failures=[];page.on('pageerror',e=>failures.push(e.message));
 try {
  const town=newTownServices({starter:true}),inventory=new GemInventory();
  inventory.setLayout(equippedSocketLayout(town));inventory.acquire(gemById.get('burning-arrow'));
  const state={zone:'town',gold:17,routeIndex:1,progression:{level:3,experience:0,passivePoints:2,pendingChoices:0,characterClass:'Ranger'}};
- const raw=encodeCheckpoint({state,town,inventory},'0.5.32');
+ const raw=encodeCheckpoint({state,town,inventory},'0.5.33');
  await page.addInitScript(({key,raw})=>{if(!localStorage.getItem(key))localStorage.setItem(key,raw);},{key:checkpointKey,raw});
  await page.route('**/version.json?*',route=>{requests++;return route.fulfill({json:{version:marker}});});
- await page.route('**/engine/version-check.mjs?v=0.5.32',async route=>{
-  if(!route.request().frame().url().includes('?v=0.5.33'))return route.continue();
+ await page.route('**/engine/version-check.mjs?v=0.5.33',async route=>{
+  if(!route.request().frame().url().includes('?v=0.5.34'))return route.continue();
   const response=await route.fetch(),source=await response.text();
-  assert.ok(source.includes("buildVersion='0.5.32'"));
-  return route.fulfill({response,body:source.replace("buildVersion='0.5.32'","buildVersion='0.5.33'")});
+  assert.ok(source.includes("buildVersion='0.5.33'"));
+  return route.fulfill({response,body:source.replace("buildVersion='0.5.33'","buildVersion='0.5.34'")});
  });
- await page.route('**/?v=0.5.33',async route=>{
+ await page.route('**/?v=0.5.34',async route=>{
   if(route.request().resourceType()!=='document')return route.continue();
   const response=await route.fetch(),source=await response.text();
-  return route.fulfill({response,body:source.replace('<small>v0.5.32</small>','<small>v0.5.33</small>')});
+  return route.fulfill({response,body:source.replace('<small>v0.5.33</small>','<small>v0.5.34</small>')});
  });
  const btn=name=>page.getByRole('button',{name,exact:true});
  await page.clock.install();
@@ -36,7 +36,7 @@ try {
  assert.equal(requests,1);
  assert.equal(await page.locator('#gold-hud').innerText(),'金幣 17');
  assert.equal(await btn('有新版').isVisible(),false);
- marker='0.5.33';
+ marker='0.5.34';
  await page.clock.fastForward(125000);
  assert.equal(requests,1,'do not repeat version checks when left open');
  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
@@ -45,7 +45,7 @@ try {
  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
  assert.equal(requests,2);
  await btn('有新版').click();
- assert.match(await page.locator('#version-message-copy').innerText(),/v0.5.33/);
+ assert.match(await page.locator('#version-message-copy').innerText(),/v0.5.34/);
  await btn('先不更新').click();
  assert.equal(await btn('有新版').isVisible(),false);
  await btn('回到遊戲').click();
@@ -55,10 +55,10 @@ try {
  await btn('繼續遊戲').click();
  await btn('有新版').click();
  await btn('儲存並重新載入').click();
- await page.waitForURL('**/?v=0.5.33');
+ await page.waitForURL('**/?v=0.5.34');
  await btn('繼續遊戲').click();
  await page.clock.runFor(100);
- assert.match(await page.locator('.brand').innerText(),/v0\.5\.33/);
+ assert.match(await page.locator('.brand').innerText(),/v0\.5\.34/);
  assert.equal(await page.locator('#gold-hud').innerText(),'金幣 17');
  assert.equal(await btn('有新版').isVisible(),false);
  assert.deepEqual(failures,[]);
@@ -77,7 +77,7 @@ try {
 
  const denied=await browser.newPage({viewport,hasTouch:true,isMobile:true});
  await denied.addInitScript(()=>{Object.defineProperty(window,'localStorage',{get(){throw new DOMException('blocked','SecurityError');}});});
- await denied.route('**/version.json?*',route=>route.fulfill({json:{version:'0.5.33'}}));
+ await denied.route('**/version.json?*',route=>route.fulfill({json:{version:'0.5.34'}}));
  await denied.goto(url,{waitUntil:'networkidle'});
  assert.match(await denied.locator('#checkpoint-start-message').innerText(),/無法讀取/);
  await denied.getByRole('button',{name:'跳過教學',exact:true}).click();

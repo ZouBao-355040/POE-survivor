@@ -1,4 +1,4 @@
-import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './conversion.mjs';
+import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './conversion.mjs?v=0.5.33';
 import {resolveHit} from './hit.mjs?v=0.5.15';
 import {mitigateHit} from './defence.mjs?v=0.5.21';
 import {applyDamage,paySkillCost} from './resources.mjs?v=0.5.18';
@@ -31,7 +31,7 @@ export function resolveAttackImpact({attacker,target,skill,modifiers,rolls,conte
  if(rules.avatarFire)packets=packets.filter(p=>p.type==='fire');
  const attackMore=rules.precise&&skill.source==='attack'&&accuracy>attacker.maximumLife?1.4:1;
  const spellMore=rules.painAttunement&&skill.source==='spell'&&attacker.life<=attacker.maximumLife*(rules.lowLifeThreshold??.5)?1.3:1;
- const damage=aggregateDamage(scalePackets(packets,modifiers,{...context,tags:[...new Set([...(context.tags??[]),'hit'])]}));
+ const damage=aggregateDamage(scalePackets(packets,modifiers,{...context,tags:[...new Set([...(context.tags??[]),'hit'])]},skill.increasedHitDamage??0));
  for(const t of Object.keys(damage))damage[t]*=attackMore*spellMore*(skill.damageMultiplier??1)*(skill.hitDamageMultiplier??1)*(skill.projectileDamageMultiplier??1)*(1+(skill.increasedProjectileDamage??0))*(['physical','chaos'].includes(t)?(skill.physicalChaosMultiplier??1):1);
  if(skill.elementalOverloadActive)for(const type of ['fire','cold','lightning'])damage[type]*=1.4;
  const criticalMultiplier=(skill.criticalMultiplier??1.5)+(target.boss?(rules.criticalUnique??0):0);
