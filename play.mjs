@@ -1,8 +1,8 @@
 import {recoveryLimit} from './engine/resources.mjs?v=0.5.18';
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
 import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.18';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.19';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.19';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.20';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.20';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.14';
 import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.10';
@@ -11,12 +11,12 @@ import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs?v=0.5.14';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.19';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.20';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.10';
 import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.10';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.19';
-import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.19';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.19';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.20';
+import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.20';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.20';
 import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.10';
 
 const $=s=>document.querySelector(s);

@@ -98,4 +98,4 @@ for(const id of builds)for(const selfFound of [false,true]){
  if(process.env.VERBOSE_BALANCE==='1'){console.log(result);console.table(rows);}
 }
 console.table(output);
-if(output.some(r=>!r.cleared||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;
+if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;

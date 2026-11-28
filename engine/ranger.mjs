@@ -1,3 +1,4 @@
+import {bleedApplication} from './bleed.mjs?v=0.5.20';
 import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.18';
 import {addHitLeech} from './player-leech.mjs?v=0.5.18';
 import {compileAttack} from './skill.mjs?v=0.5.14';
@@ -271,11 +272,8 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    t={...t,dots:[...(t.dots??[]).filter(x=>stack||x.key!==key),{type,key,rate,start:time,end:time+duration}]};
   };
   const ailmentMult=mult*(1+chainBonus+pierceBonus)*modifiers.calculate(1,'damageOverTime',p.skill.context)*(p.skill.physicalChaosMultiplier??1)*(p.skill.projectileDamageMultiplier??1)*(result.ailmentCriticalMultiplier??1);
-  if(result.canInflictHitAilments&&active.bleed&&!player.rules?.avatarFire){
-   const crimson=!!player.rules?.crimsonDance&&p.leechProxy!=='minion';
-   const rate=(result.ailmentBase?.physical??0)*.91*ailmentMult*(crimson?.5:1);
-   if(rate>0)t={...t,dots:[...(t.dots??[]),{type:'physical',key:'bleed',crimson,rate,start:time,end:time+(active.duration??8)}]};
-  }
+  const bleed=bleedApplication({result,skill:s,player,modifiers,time,mult,chainBonus,pierceBonus,minion:p.leechProxy==='minion',random});
+  if(bleed)t={...t,dots:[...(t.dots??[]),bleed]};
   if(result.canInflictHitAilments&&!player.rules?.avatarFire&&active.poisonChance>0&&random()<active.poisonChance)added('chaos',((result.ailmentBase?.physical??0)+(result.ailmentBase?.chaos??0))*.3*ailmentMult,2,'poison',true);
   if(active.drain&&!player.rules?.avatarFire){added('chaos',active.baseDot*(active.gemDotScale??1)*mult*modifiers.calculate(1,['damageOverTime','chaosDamage'],p.skill.context),active.duration,'essence-drain');if(!active.noHeal&&player.life>0)player.life=recover(player,'life',active.baseDot*.025).life;}
   if(result.canInflictHitAilments&&result.damage?.cold>0&&(result.hit.critical||random()<(active.freezeChance??0)))t={...t,frozenUntil:Math.max(t.frozenUntil??0,time+.28*Math.max(.2,mult))};

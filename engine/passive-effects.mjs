@@ -51,6 +51,18 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^Attacks have (\d+)% chance to cause Bleeding$/)))
+  return [[numeric('bleedChance:attack',+m[1]/100)],'攻擊有 '+m[1]+'% 機率造成流血'];
+ if((m=line.match(/^(\d+)% increased Critical Strike Chance for Attacks$/)))
+  return [[numeric('criticalChance:attack',+m[1]/100,'increased')],'攻擊的暴擊率提高 '+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased Damage with Bleeding$/)))
+  return [[numeric('bleedDamage',+m[1]/100,'increased')],'流血傷害提高 '+m[1]+'%'];
+ if((m=line.match(/^\+(\d+)% to Damage over Time Multiplier for Bleeding$/)))
+  return [[numeric('bleedDotMultiplier',+m[1]/100)],'流血持續傷害加成 +'+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased Bleeding Duration$/)))
+  return [[numeric('bleedDuration',+m[1]/100,'increased')],'流血持續時間延長 '+m[1]+'%'];
+ if((m=line.match(/^Bleeding you inflict deals Damage (\d+)% \[DamageFaster\|Faster\]$/)))
+  return [[numeric('bleedFaster',+m[1]/100)],'你造成的流血傷害加快 '+m[1]+'%'];
  if((m=line.match(/^\+(\d+) to (Strength|Dexterity|Intelligence|all Attributes)$/))){
   const keys=m[2]==='all Attributes'?['strength','dexterity','intelligence']:[m[2].toLowerCase()];
   return [keys.map(key=>numeric(key,+m[1])),translate[m[2]]+' +'+m[1]];

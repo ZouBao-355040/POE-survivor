@@ -1,4 +1,4 @@
-import {integrateBleed} from './bleed.mjs?v=0.5.19';
+import {integrateBleed} from './bleed.mjs?v=0.5.20';
 import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './enemy-arrows.mjs?v=0.5.16';
 import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.18';
 import {advancePlayerLeech} from './player-leech.mjs?v=0.5.18';
