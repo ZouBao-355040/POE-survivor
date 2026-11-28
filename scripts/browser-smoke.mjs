@@ -27,7 +27,7 @@ async function verify(viewport,mobile){
  const btn=(name,target=page)=>target.getByRole('button',{name,exact:typeof name==='string'});
  const text=s=>page.locator(s).innerText();
  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('絕望岩灘'));
- assert.match(await text('.brand'),/v0\.5\.15/);
+ assert.match(await text('.brand'),/v0\.5\.16/);
  assert.equal(await page.locator('html').getAttribute('lang'),'zh-Hant');
  assert.equal(await page.locator('#guide-choice').getByRole('combobox').count(),0);
  assert.equal(await text('#campaign-character'),'遊俠');
@@ -336,7 +336,7 @@ async function verifyBeachRetry(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  // Use a one-shot, test-only death after the first loot event. Real movement and retry controls are unchanged.
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.15',async route=>{
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker="if(ev.target===hillockId&&!state.dead)notify(";
   assert.ok(source.includes(marker));
@@ -369,7 +369,7 @@ async function verifyVaalPact(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.15',async route=>{
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -405,7 +405,7 @@ async function verifyGhostDance(){
  const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- await page.route('**/play.mjs?v=0.5.15',async route=>{
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -442,7 +442,7 @@ async function verifyAttackRecovery(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.15',async route=>{
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -490,7 +490,7 @@ async function verifySkillCost(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.15',async route=>{
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -532,7 +532,7 @@ async function verifyWindAndAgony(){
  const errors=[];
  page.on('pageerror',error=>errors.push(error.message));
  await page.addInitScript(()=>{Math.random=()=>.4;});
- await page.route('**/play.mjs?v=0.5.15',async route=>{
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
   const response=await route.fetch(),source=await response.text();
   const marker='updateEquipment({refill:true});guideChoice.close();';
   const allocation='updateEquipment();return state.progression;';
@@ -574,8 +574,64 @@ async function verifyWindAndAgony(){
  await page.close();
  console.log('風魔舞者與絕對受難：手機配置後，首擊減傷、再擊增傷、暴擊傷害轉為點燃均實測。');
 }
+async function verifyEnemyArrows(){
+ const {allocate,tracePath}=await import('../engine/passive-tree.mjs');
+ let p={characterClass:'Ranger',level:1,passivePoints:30};
+ for(const id of tracePath(p,54922).slice(1,-1))p=allocate(p,id);
+ const page=await browser.newPage({viewport:{width:412,height:892},hasTouch:true,isMobile:true,ignoreHTTPSErrors:!!process.env.BROWSER_PROXY});
+ const errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{
+  Math.random=()=>.4;
+  window.arrowDraw={windup:0,arrow:0};
+  const original=CanvasRenderingContext2D.prototype.stroke;
+  CanvasRenderingContext2D.prototype.stroke=function(...args){
+   if(this.strokeStyle==='#efaaee')window.arrowDraw.windup++;
+   if(this.strokeStyle==='#ffbaff')window.arrowDraw.arrow++;
+   return original.apply(this,args);
+  };
+ });
+ await page.route('**/play.mjs?v=0.5.16',async route=>{
+  const response=await route.fetch(),source=await response.text();
+  const marker='updateEquipment({refill:true});guideChoice.close();';
+  const allocation='updateEquipment();return state.progression;';
+  assert.ok(source.includes(marker)&&source.includes(allocation));
+  const fixture=`updateEquipment();if(id===54922){
+    Object.assign(state.player,{life:50,maximumLife:50,evasion:0,lifeRegen:0,speed:4});
+    state.flasks={life:{charges:0,remaining:0},mana:{charges:0,remaining:0}};
+    state.projectiles=[];state.cooldown=99;
+    state.enemies=[{id:'archer',name:'遠古之弓',family:'ancient-archer',x:5,y:0,life:1000,maximumLife:1000,speed:0,evasion:0,accuracy:1000,defence:{},radius:.38,attackRange:7,attack:{baseDamage:{physical:10},attacksPerSecond:.45},arrow:{speed:12,windup:.48,lifetime:.92}}];
+   }return state.progression;`;
+  await route.fulfill({response,body:source.replace(marker,`state.progression=${JSON.stringify(p)};updateEquipment({refill:true});state.enemies=[];guideChoice.close();`).replace(allocation,fixture)});
+ });
+ await page.clock.install();
+ await page.goto(entry,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'跳過教學'}).click();
+ await page.locator('#talent-open').click();
+ await page.getByRole('searchbox',{name:'搜尋天賦'}).fill('54922');
+ const node=page.locator('[data-talent-id="54922"]');
+ assert.equal(await node.getAttribute('data-talent-state'),'available');
+ await node.click();
+ assert.match(await page.locator('.talent-details').innerText(),/閃避值加倍/);
+ await page.locator('[data-talent-allocate="54922"]').click();
+ await page.keyboard.press('Escape');
+ await page.clock.runFor(250);
+ const cue=await page.evaluate(()=>({...window.arrowDraw}));
+ assert.ok(cue.windup>0);
+ assert.equal(cue.arrow,0);
+ await page.keyboard.down('w');
+ await page.clock.runFor(270);
+ await page.keyboard.up('w');
+ await page.clock.runFor(600);
+ const arrow=await page.evaluate(()=>window.arrowDraw.arrow);
+ assert.ok(arrow>0);
+ assert.equal(await page.locator('#life-num').innerText(),'50/50');
+ assert.deepEqual(errors,[]);
+ await page.close();
+ console.log('箭舞與敵方箭矢：手機實測可見射擊路線，箭真的飛過，走位閃開不扣血。');
+}
 try{
- if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();await verifySkillCost();await verifyWindAndAgony();}
+ if(process.env.VERIFY_BEACH_RETRY==='1'||new URL(entry).hostname==='127.0.0.1'){await verifyBeachRetry();await verifyVaalPact();await verifyGhostDance();await verifyAttackRecovery();await verifySkillCost();await verifyWindAndAgony();await verifyEnemyArrows();}
  await verify({width:412,height:892},true);
  await verify({width:1100,height:730},false);
 }finally{await browser.close();}

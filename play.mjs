@@ -1,7 +1,7 @@
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
 import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.14';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.15';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.15';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.16';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.16';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.14';
 import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.10';
@@ -10,12 +10,12 @@ import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs?v=0.5.14';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.15';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.16';
 import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.10';
 import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.10';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.15';
-import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.15';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.15';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.16';
+import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.16';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.16';
 import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.10';
 
 const $=s=>document.querySelector(s);
@@ -70,11 +70,11 @@ function enterTown(){
  if(state.zone==='beach'){
   if(!canEnterTown(state))return;
   state.progression=grantExperience(state.progression,state.beachXP??0,xpCost);
-  state={...state,zone:'town',enemies:[],projectiles:[],fields:[],goldDrops:[],time:0,
+  state={...state,zone:'town',enemies:[],projectiles:[],fields:[],enemyCasts:[],enemyArrows:[],goldDrops:[],time:0,
     cooldown:0,skillCooldowns:{},nextSpawn:0,flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,recoupEffects:undefined,lastAttackHit:undefined,ghostClock:0,ghostShrouds:0,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else if(state.zone==='trial'&&(state.dead||state.encounter?.phase==='cleared')){
   const route=advanceRoute(state);
-  state={...route,zone:'town',dead:false,encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],time:0,
+  state={...route,zone:'town',dead:false,encounter:null,enemies:[],projectiles:[],fields:[],enemyCasts:[],enemyArrows:[],time:0,
     flasks:starterFlasks(),player:{...state.player,activeLeech:undefined,recoupEffects:undefined,lastAttackHit:undefined,ghostClock:0,ghostShrouds:0,life:state.player.maximumLife,mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0,shieldInterruptedAt:0,shieldCharging:false,x:0,y:0}};
  }else return;
  const claimed=claimBattleLoot(townItems,state.gold,state.pendingLoot);
@@ -576,6 +576,12 @@ function render(){
   if(f.beamTo){const [bx,by]=point(f.beamTo);ctx.strokeStyle='#d8c9ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(bx,by);ctx.stroke();continue;}ctx.globalAlpha=f.visual?.34:.23;ctx.fillStyle=f.color??'#b7d879';ctx.beginPath();ctx.arc(x,y,(f.radius??1)*scale,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
  }
  for(const cast of state.enemyCasts??[]){
+  if(cast.kind==='arrow-windup'){
+   const [x,y]=point(cast),progress=Math.max(0,1-(cast.impactAt-state.time)/cast.windup);
+   ctx.save();ctx.setLineDash([5,5]);ctx.globalAlpha=.35+progress*.45;ctx.strokeStyle='#efaaee';ctx.lineWidth=1.5;
+   ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+cast.dx*cast.range*scale,y+cast.dy*cast.range*scale);ctx.stroke();ctx.restore();
+   continue;
+  }
   const [x,y]=point(cast),r=cast.radius*scale;
   const progress=Math.max(0,1-(cast.impactAt-state.time)/cast.windup);
   ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
@@ -583,7 +589,15 @@ function render(){
   ctx.strokeStyle=cast.element==='cold'?'#9cdcff':'#f79255';ctx.lineWidth=2;ctx.stroke();
   ctx.beginPath();ctx.arc(x,y,r*progress,0,Math.PI*2);ctx.stroke();
  }
- for(const e of state.enemies){dot(e,e.radius??.35,e.boss?'#c67c4e':e.frozenUntil>state.time?'#b2e9ff':e.ignites?.length?'#e88939':e.dots?.length?'#aecc71':e.family==='fire-eater'?'#efab69':e.family==='crab'?'#87a6ad':'#ad5d63');const [x,y]=point(e);ctx.fillStyle='#d98187';ctx.fillRect(x-8,y-10,16*Math.max(0,e.life/e.maximumLife),3);
+ for(const arrow of state.enemyArrows??[]){
+  const [x,y]=point(arrow),tail=scale*.65,spread=scale*.14,back=scale*.23;
+  ctx.beginPath();ctx.strokeStyle='#ffbaff';ctx.lineWidth=2.25;
+  ctx.moveTo(x-arrow.dx*tail,y-arrow.dy*tail);ctx.lineTo(x,y);
+  ctx.lineTo(x-arrow.dx*back-arrow.dy*spread,y-arrow.dy*back+arrow.dx*spread);
+  ctx.moveTo(x,y);ctx.lineTo(x-arrow.dx*back+arrow.dy*spread,y-arrow.dy*back-arrow.dx*spread);
+  ctx.stroke();
+ }
+ for(const e of state.enemies){dot(e,e.radius??.35,e.boss?'#c67c4e':e.frozenUntil>state.time?'#b2e9ff':e.ignites?.length?'#e88939':e.dots?.length?'#aecc71':e.family==='ancient-archer'?'#c8a4d4':e.family==='fire-eater'?'#efab69':e.family==='crab'?'#87a6ad':'#ad5d63');const [x,y]=point(e);ctx.fillStyle='#d98187';ctx.fillRect(x-8,y-10,16*Math.max(0,e.life/e.maximumLife),3);
   if(e.boss){ctx.fillStyle='#ffd1a4';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText(e.name,x,y-17);ctx.textAlign='start';}
  }
  for(const a of state.projectiles){

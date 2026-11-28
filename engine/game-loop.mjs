@@ -1,3 +1,4 @@
+import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './enemy-arrows.mjs?v=0.5.16';
 import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.13';
 import {advancePlayerLeech} from './player-leech.mjs?v=0.5.13';
 import {collectGold} from './gem-shop.mjs';
@@ -7,7 +8,7 @@ import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs?v=0.5.15';
 import {mitigateDot,integrateDot} from './dot.mjs';
 import {applyDamage,recover,recoveryLimit} from './resources.mjs?v=0.5.14';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.15';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.16';
 import {rechargeShield} from './recovery.mjs';
 import {agnosticStep,tickGhostShrouds,consumeGhostShroud} from './keystones.mjs?v=0.5.12';
 import {grantExperience} from './progression.mjs';
@@ -38,7 +39,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  if(flasks)({player,flasks}=advanceFlaskRecovery(player,flasks,dt));
  advancePlayerLeech(player,dt);
  enemies=enemies.map(e=>{let target=e;const defence=e.exposureUntil>time?{...e.defence,resistances:{...e.defence?.resistances,...Object.fromEntries((e.exposed??[]).map(type=>[type,(e.defence?.resistances?.[type]??0)-.25]))}}:e.defence;for(const i of igniteIntervals(e.ignites??[],time,time+dt)){if(target.life<=0)break;const rates=mitigateDot({fire:i.rate},defence);target=applyDamage(target,Object.fromEntries(Object.entries(rates).map(([k,v])=>[k,v*(i.end-i.start)])),target.rules).state;}if(target.life>0)target=applyDamage(target,integrateDot((e.dots??[]).map(i=>i.type==='chaos'&&e.witherUntil>time?{...i,rate:i.rate*1.15}:i),time,time+dt,defence),target.rules).state;if(e.life>0&&target.life<=0){target.killCredit='player-dot';player=recoverOnKill(player);}return {...target,dots:(e.dots??[]).filter(i=>i.end>time+dt),ignites:(e.ignites??[]).filter(i=>i.end>time+dt)};});
- enemies=enemies.map(e=>e.life>0?moveToward(e,player,(e.frozenUntil>time?0:(e.speed??0)*((e.chilledUntil>time||e.ensnaredUntil>time)?.7:1)),dt,e.attackRange??.5):e);
+ enemies=enemies.map(e=>e.life>0?moveToward(e,player,(e.frozenUntil>time||e.arrowWindingUntil>time?0:(e.speed??0)*((e.chilledUntil>time||e.ensnaredUntil>time)?.7:1)),dt,e.attackRange??.5):e);
  const hit=(e,p,sourcePlayer=player)=>{const i=enemies.findIndex(t=>t.id===e.id);if(i<0||enemies[i].life<=0)return;if(onImpact){const t=enemies[i];const shocked=t.shockedUntil>time;const next=onImpact(shocked?{...t,defence:{...t.defence,increasedTaken:(t.defence?.increasedTaken??0)+.15}}:t,p,time+dt,sourcePlayer);if(next.life<=0){const owned=!damageProxy(p);next.killCredit=owned?'player-hit':'proxy-hit';if(owned)Object.assign(sourcePlayer,recoverOnKill(sourcePlayer));}enemies[i]=shocked?{...next,defence:t.defence}:next;}onHitEffect?.(p,enemies[i],env);events.push({type:'impact',target:e.id,skill:p.skill?.id});};
  const env={player,enemies,hit,time:time+dt};
  const fields=[],spawned=[];
@@ -58,6 +59,7 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
  projectiles.push(...spawned);
 
  const enemyCasts=[];
+ let enemyArrows=state.enemyArrows??[];
  if(enemyModifiers){
   const rollHit=(attacker,skill)=>{
    const result=resolveAttackImpact({attacker,target:player,skill,modifiers:enemyModifiers,combatTime:time+dt,
@@ -66,9 +68,22 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
     result.target.shieldInterruptedAt=time+dt;result.target.shieldCharging=false;
    }
    player=consumeGhostShroud(queueHitRecoup(player,result.target),result);
-   events.push({type:'enemyAttack',source:attacker.id,dead:result.dead??false});
+   events.push({type:'enemyAttack',source:attacker.id,attackKind:skill.attackKind,hit:result.hit.hit,blocked:result.mitigation?.blocked??false,dead:result.dead??false});
   };
+  const swept=moveEnemyArrows(enemyArrows,dt,state.player,player);
+  enemyArrows=swept.active;
+  for(const arrow of swept.contacts)if(player.life>0)rollHit(arrow.attacker,arrow.skill);
   for(const cast of state.enemyCasts??[]){
+   if(cast.kind==='arrow-windup'){
+    const archer=enemies.find(e=>e.id===cast.source&&e.life>0&&!(e.frozenUntil>time+dt));
+    if(!archer||player.life<=0)continue;
+    if(cast.impactAt>time+dt){enemyCasts.push(cast);continue;}
+    if(enemyArrows.length<enemyArrowLimit){
+     const source=archer.blindedUntil>time+dt?{...archer,accuracy:archer.accuracy*.7}:archer;
+     enemyArrows.push(launchEnemyArrow(cast,source));
+    }
+    continue;
+   }
    if(cast.impactAt>time+dt){enemyCasts.push(cast);continue;}
    if(player.life>0&&Math.hypot(cast.x-player.x,cast.y-player.y)<=cast.radius)
     rollHit({id:cast.source},{source:'spell',baseDamage:{[cast.element??'fire']:cast.damage},criticalChance:0,igniteChance:0});
@@ -78,9 +93,13 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
    e.attackCooldown=Math.max(0,(e.attackCooldown??0)-dt);
    if(e.attackCooldown!==0||Math.hypot(e.x-player.x,e.y-player.y)>(e.attackRange??.5)+1e-8)continue;
    e.attackCooldown=1/e.attack.attacksPerSecond;
-   if(e.fireCast){
+   if(e.arrow){
+    const aim=aimEnemyArrow(e,player,time+dt);
+    e.arrowWindingUntil=aim.impactAt;
+    enemyCasts.push(aim);
+   }else if(e.fireCast){
     enemyCasts.push({x:player.x,y:player.y,source:e.id,impactAt:time+dt+e.fireCast.windup,...e.fireCast});
-   }else rollHit(e.blindedUntil>time?{...e,accuracy:e.accuracy*.7}:e,e.attack);
+   }else rollHit(e.blindedUntil>time?{...e,accuracy:e.accuracy*.7}:e,{...e.attack,attackKind:e.attack.attackKind??'melee'});
   }
  }else enemyCasts.push(...(state.enemyCasts??[]));
  let cooldown=Math.max(0,(state.cooldown??0)-dt);
@@ -136,5 +155,5 @@ export function stepWorld(state,dt,{direction={x:0,y:0},spawnInterval=2,spawnRad
   wallet={gold:state.gold+collected.amount,goldDrops:collected.remaining};
   if(collected.amount>0)events.push({type:'gold',amount:collected.amount});
  }
- return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,...(enemyCasts.length||state.enemyCasts?{enemyCasts}:{}),time:time+dt,nextSpawn,nextId,cooldown,...(skillCooldowns?{skillCooldowns}:{}),events};
+ return {...state,...wallet,...(flasks?{flasks}:{}),progression,dead:player.life<=0,player,enemies:enemies.filter(e=>e.life>0),projectiles,fields,...(enemyCasts.length||state.enemyCasts?{enemyCasts}:{}),...(enemyArrows.length||state.enemyArrows?{enemyArrows}:{}),time:time+dt,nextSpawn,nextId,cooldown,...(skillCooldowns?{skillCooldowns}:{}),events};
 }

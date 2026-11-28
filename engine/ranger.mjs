@@ -5,7 +5,7 @@ import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
 import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.14';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.15';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.16';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';

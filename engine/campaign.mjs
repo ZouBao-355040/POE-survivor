@@ -1,6 +1,6 @@
 import {starterFlasks} from './flasks.mjs?v=0.5.14';
 import {actOne} from './act-one.mjs';
-import {stepWorld} from './game-loop.mjs?v=0.5.15';
+import {stepWorld} from './game-loop.mjs?v=0.5.16';
 
 export const places=Object.freeze({beach:'絕望岩灘',town:'獅眼守望',trial:'暮光海灘',practice:'試射場'});
 export const gate={x:30,y:0};
@@ -28,7 +28,7 @@ export function retryBeach(state){
  if(state.zone!=='beach'||!state.dead)return state;
  const survivors=new Set(state.enemies.filter(e=>e.life>0).map(e=>e.id));
  return {...state,dead:false,paused:false,time:0,cooldown:0,skillCooldowns:{},
-  enemies:openingBeach().filter(e=>survivors.has(e.id)),projectiles:[],fields:[],enemyCasts:[],events:[],
+  enemies:openingBeach().filter(e=>survivors.has(e.id)),projectiles:[],fields:[],enemyCasts:[],enemyArrows:[],events:[],
   flasks:starterFlasks(),player:{...clearTransientRecovery(state.player),x:0,y:0,life:state.player.maximumLife,
    mana:state.player.maximumMana,energyShield:state.player.maximumEnergyShield??0}};
 }
@@ -65,7 +65,7 @@ export function beginTrial(state,rules=coastRules,mapMods){
  if(!Number.isSafeInteger(maxActive)||maxActive<1||!Number.isSafeInteger(refillAt)||refillAt<0||refillAt>=maxActive)
   throw new RangeError('Active ceiling must exceed the non-negative refill line');
  return {...state,zone:'trial',time:0,nextSpawn:0,cooldown:0,skillCooldowns:{},dead:false,
-  paused:false,projectiles:[],enemies:[],fields:[],enemyCasts:[],goldDrops:[],events:[],
+  paused:false,projectiles:[],enemies:[],fields:[],enemyCasts:[],enemyArrows:[],goldDrops:[],events:[],
   player:{...clearTransientRecovery(state.player),x:0,y:0},encounter:{...budget,generated:0,arrivals:0,
    duration:rules.duration,maxActive,refillAt,phase:'waves',bossReason:null,heldEnemy:null,
    stageId:rules.id??'coast',stageName:rules.name??'暮光海灘',theme:rules.theme??'coast',
@@ -88,6 +88,8 @@ function routeNormal(encounter,id,x,y,band,i){
  if(encounter.theme==='coast')return coastNormal(id,x,y,band,i);
  const role=(i+band)%6,rank=encounter.rank,life=20+rank*2+Math.floor(band/3)*3;
  const kind=encounter.theme==='mud'?'恐喙鳥':encounter.theme==='prison'?'囚牢不死者':encounter.theme==='ridge'?'山道襲擊者':'洞穴爬行者';
+ if(role===2&&encounter.stageId==='ledge')return shoreEnemy(id,x,y,life,{family:'ancient-archer',name:'遠古之弓',
+  speed:1.55,range:7.1,physical:9,attacksPerSecond:.45,arrow:{speed:12,windup:.48,lifetime:.92},experienceReward:6});
  if(role===2)return shoreEnemy(id,x,y,life,{family:'fire-eater',name:'遠程伏擊者',speed:1.48,range:5.9,attacksPerSecond:.34,
   fireCast:{damage:8+Math.floor(rank*.7),radius:1.2,windup:.86},experienceReward:6});
  if(role===4)return shoreEnemy(id,x,y,life+10,{family:'crab',name:'重甲'+kind,speed:1.58,physical:6,radius:.49,defence:{armour:6+rank},experienceReward:6});
@@ -137,7 +139,7 @@ function finishStage(next){
  const encounter=next.encounter;
  const gold=next.gold+(next.goldDrops??[]).reduce((total,item)=>total+item.amount,0);
  const waiting=encounter.glyphs.some(g=>!g.taken);
- return {...next,gold,goldDrops:[],enemyCasts:[],
+ return {...next,gold,goldDrops:[],enemyCasts:[],enemyArrows:[],
   ...(waiting?{enemies:[],projectiles:[],fields:[]}:{}),
   encounter:{...encounter,phase:waiting?'glyphs':'cleared',heldEnemy:null},
   events:[...next.events,{type:waiting?'glyphs-needed':'trial-cleared'}]};

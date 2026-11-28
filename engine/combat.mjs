@@ -13,10 +13,12 @@ export function resolveAttackImpact({attacker,target,skill,modifiers,rolls,conte
  context={...context,...(skill.context??{})};
  const rules=attacker.rules??{};
  const source=skill.source??'attack';
+ const arrowDance=source==='attack'&&target.rules?.arrowDancing;
+ const dodgeRating=(target.evasion??0)*(arrowDance?skill.attackKind==='projectile'?2:skill.attackKind==='melee'?.75:1:1);
  const wind=source==='attack'&&target.rules?.windDancer;
  const recently=wind&&combatTime-(target.lastAttackHit??-Infinity)<4-1e-9;
  const fullLife=target.life>=target.maximumLife*(target.rules?.fullLifeThreshold??1);
- const hit=resolveHit({source,moreEvadeChance:recently?1.1:1,accuracy:attacker.accuracy,evasion:target.evasion,entropy:target.entropy??0,criticalChance:(skill.criticalChance??0)+(fullLife?(skill.baseCriticalChance??0)*(rules.criticalFull??0):0),cannotEvade:rules.resolute,cannotCrit:rules.resolute||rules.precise,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
+ const hit=resolveHit({source,moreEvadeChance:recently?1.1:1,accuracy:attacker.accuracy,evasion:dodgeRating,entropy:target.entropy??0,criticalChance:(skill.criticalChance??0)+(fullLife?(skill.baseCriticalChance??0)*(rules.criticalFull??0):0),cannotEvade:rules.resolute,cannotCrit:rules.resolute||rules.precise,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
  if(skill.source==='spell'&&(rolls.suppress??1)<(target.defence?.spellDodge??0)){hit.hit=false;hit.critical=false;hit.dodged=true;}
  const nextTarget={...target,entropy:hit.entropy};
  if(!hit.hit)return {performed:true,hit,attacker:attacker,target:nextTarget};
