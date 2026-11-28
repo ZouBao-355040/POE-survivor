@@ -1,5 +1,5 @@
 import {skillDotRate} from './dot.mjs?v=0.5.28';
-import {poisonApplication} from './poison.mjs?v=0.5.26';
+import {poisonApplication} from './poison.mjs?v=0.5.29';
 import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
 import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.18';

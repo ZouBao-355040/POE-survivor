@@ -17,7 +17,7 @@ import {newTownServices,emptyBattleLoot,queueTrialLoot,claimBattleLoot,equipGear
 
 const seed=number=>()=>((number=Math.imul(number,1664525)+1013904223|0)>>>0)/4294967296;
 const checkIgnite=process.env.CHECK_IGNITE==='1';
-const checkGuard=process.env.CHECK_GUARD==='1',checkYouth=process.env.CHECK_YOUTH==='1',checkFlasks=Number(process.env.CHECK_FLASKS??0),checkPoison=process.env.CHECK_POISON==='1';
+const checkGuard=process.env.CHECK_GUARD==='1',checkYouth=process.env.CHECK_YOUTH==='1',checkFlasks=Number(process.env.CHECK_FLASKS??0),checkPoisonMastery=process.env.CHECK_POISON_MASTERY==='1',checkPoison=checkPoisonMastery||process.env.CHECK_POISON==='1';
 const score=g=>g?g.value+(g.affixes??[]).reduce((n,x)=>n+x.value*(x.key==='life'?1:.45),0)+(checkGuard?.3*(g.baseDefence?.armour??0)+.5*(g.baseDefence?.energyShield??0):0):0;
 const started={x:0,y:0,speed:4,attackRange:12,life:70,maximumLife:70,mana:58,maximumMana:58,energyShield:0,accuracy:90,evasion:15,defence:{}};
 const output=[];
@@ -46,10 +46,10 @@ for(const id of builds)for(const selfFound of checkIgnite||checkGuard||checkYout
    state={...state,progression:allocateTalent(state.progression,'39821')};
   if(checkIgnite||checkCrimson||checkGuard||checkYouth||checkFlasks||checkPoison){
    let progress=state.progression;
-   for(const node of tracePath(progress,checkIgnite?36736:checkPoison?64769:checkFlasks===2?41137:checkFlasks?50690:checkYouth?21650:checkGuard?24720:17818).slice(1)){
+   for(const node of tracePath(progress,checkIgnite?36736:checkPoisonMastery?1205:checkPoison?64769:checkFlasks===2?41137:checkFlasks?50690:checkYouth?21650:checkGuard?24720:17818).slice(1)){
     if(progress.talents?.includes(String(node)))continue;
     if(points(progress).remaining===0)break;
-    progress=allocate(progress,node);
+    progress=allocate(progress,node,checkPoisonMastery&&node===1205?34563:undefined);
    }
    state={...state,progression:progress};
   }
@@ -113,10 +113,11 @@ for(const id of builds)for(const selfFound of checkIgnite||checkGuard||checkYout
   ...(checkFlasks?{flaskAreas,flaskUses,level:state.progression.level}:{}),
   ...(checkFlasks===2?{flaskHits}:{}),
   ...(checkPoison?{poisonAreas,poisonTicks}:{}),
+  ...(checkPoisonMastery?{poisonMastery:state.progression.masteries?.[1205]===34563}:{}),
   ...(checkIgnite?{igniteAreas,igniteTicks}:{}),
   seconds:rows.reduce((sum,r)=>sum+r.seconds,0),minLife:Math.min(...rows.map(r=>r.minLife))};
  output.push(result);
  if(process.env.VERBOSE_BALANCE==='1'){console.log(result);console.table(rows);}
 }
 console.table(output);
-if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||checkGuard&&!r.guardAreas||checkYouth&&!r.youthAreas||checkFlasks&&(!r.flaskAreas||!r.flaskUses)||checkFlasks===2&&!r.flaskHits||checkPoison&&(!r.poisonAreas||!r.poisonTicks)||checkIgnite&&(!r.igniteAreas||!r.igniteTicks)||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;
+if(output.some(r=>!r.cleared||checkCrimson&&!r.allocated||checkGuard&&!r.guardAreas||checkYouth&&!r.youthAreas||checkFlasks&&(!r.flaskAreas||!r.flaskUses)||checkFlasks===2&&!r.flaskHits||checkPoisonMastery&&!r.poisonMastery||checkPoison&&(!r.poisonAreas||!r.poisonTicks)||checkIgnite&&(!r.igniteAreas||!r.igniteTicks)||r.mode==='field gear + crafting'&&(r.drops<1||r.crafts<1)))process.exitCode=1;

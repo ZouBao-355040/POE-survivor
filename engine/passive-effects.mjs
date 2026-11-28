@@ -177,6 +177,12 @@ export function parsePassiveLine(line){
   const source=m[2]==='Attacks'?'attack':m[2]==='Spell Damage'?'spell':'';
   return [[numeric('poisonChance'+(source?':'+source:''),+m[1]/100)],(source==='attack'?'攻擊':source==='spell'?'法術':'')+'擊中時有 '+m[1]+'% 機率使敵人中毒'];
  }
+ if((m=line.match(/^Poisons you inflict on non-Poisoned Enemies deal (\d+)% increased Damage$/)))
+  return [[{...numeric('poisonDamage',+m[1]/100,'increased'),conditions:{nonPoisoned:true}}],'對未中毒敵人施加的中毒傷害提高 '+m[1]+'%'];
+ if((m=line.match(/^\[Poison\|Poisons\] you inflict deal Damage (\d+)% \[DamageFaster\|Faster\]$/)))
+  return [[numeric('poisonFaster',+m[1]/100)],'你造成的中毒傷害加快 '+m[1]+'%'];
+ if((m=line.match(/^\+(\d+)% to Damage over Time Multiplier for Poison you inflict on Bleeding Enemies$/)))
+  return [[{...numeric('poisonDotMultiplier',+m[1]/100),conditions:{bleedingTarget:true}}],'對流血敵人施加的中毒持續傷害加成 +'+m[1]+'%'];
  if((m=line.match(/^\+(\d+)% to Damage over Time Multiplier for Poison$/)))return [[numeric('poisonDotMultiplier',+m[1]/100)],'中毒持續傷害加成 +'+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Poison Duration$/)))return [[numeric('poisonDuration',+m[1]/100,'increased')],'中毒持續時間提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% faster start of Energy Shield Recharge$/)))return [[numeric('esFasterStart',+m[1]/100,'increased')],'能量護盾充能開始速度加快 '+m[1]+'%'];
