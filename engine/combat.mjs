@@ -18,14 +18,18 @@ export function resolveAttackImpact({attacker,target,skill,modifiers,rolls,conte
  const wind=source==='attack'&&target.rules?.windDancer;
  const recently=wind&&combatTime-(target.lastAttackHit??-Infinity)<4-1e-9;
  const fullLife=target.life>=target.maximumLife*(target.rules?.fullLifeThreshold??1);
- const hit=resolveHit({source,moreEvadeChance:recently?1.1:1,accuracy:attacker.accuracy,evasion:dodgeRating,entropy:target.entropy??0,criticalChance:(skill.criticalChance??0)+(fullLife?(skill.baseCriticalChance??0)*(rules.criticalFull??0):0),cannotEvade:rules.resolute,cannotCrit:rules.resolute||rules.precise,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
+ // Bow-only increases combine additively with global increases before rounding.
+ const tags=context.tags??[];
+ const bowIncrease=source==='attack'&&tags.includes('bow')&&!tags.includes('minion')?modifiers.breakdown('attackAccuracy',context).increased:0;
+ const accuracy=bowIncrease?Math.round((attacker.baseAccuracy??attacker.accuracy??0)*(1+(attacker.increasedAccuracy??0)+bowIncrease)):attacker.accuracy;
+ const hit=resolveHit({source,moreEvadeChance:recently?1.1:1,accuracy,evasion:dodgeRating,entropy:target.entropy??0,criticalChance:(skill.criticalChance??0)+(fullLife?(skill.baseCriticalChance??0)*(rules.criticalFull??0):0),cannotEvade:rules.resolute,cannotCrit:rules.resolute||rules.precise,criticalRoll:rolls.critical,confirmationRoll:rolls.confirmation});
  if(skill.source==='spell'&&(rolls.suppress??1)<(target.defence?.spellDodge??0)){hit.hit=false;hit.critical=false;hit.dodged=true;}
  const nextTarget={...target,entropy:hit.entropy};
  if(!hit.hit)return {performed:true,hit,attacker:attacker,target:nextTarget};
  const base=prepareBaseDamage(skill.baseDamage,modifiers,context,skill.effectiveness??1);
  let packets=convertDamage(base,[...(skill.conversion??[]),...(rules.avatarFire?['physical','cold','lightning'].map(from=>({from,to:'fire',fraction:.5,kind:'convert',priority:'other'})):[])]);
  if(rules.avatarFire)packets=packets.filter(p=>p.type==='fire');
- const attackMore=rules.precise&&skill.source==='attack'&&attacker.accuracy>attacker.maximumLife?1.4:1;
+ const attackMore=rules.precise&&skill.source==='attack'&&accuracy>attacker.maximumLife?1.4:1;
  const spellMore=rules.painAttunement&&skill.source==='spell'&&attacker.life<=attacker.maximumLife*(rules.lowLifeThreshold??.5)?1.3:1;
  const damage=aggregateDamage(scalePackets(packets,modifiers,{...context,tags:[...new Set([...(context.tags??[]),'hit'])]}));
  for(const t of Object.keys(damage))damage[t]*=attackMore*spellMore*(skill.damageMultiplier??1)*(skill.hitDamageMultiplier??1)*(skill.projectileDamageMultiplier??1)*(1+(skill.increasedProjectileDamage??0))*(['physical','chaos'].includes(t)?(skill.physicalChaosMultiplier??1):1);

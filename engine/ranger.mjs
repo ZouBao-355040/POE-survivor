@@ -1,4 +1,4 @@
-import {skillDotRate} from './dot.mjs?v=0.5.30';
+import {skillDotRate} from './dot.mjs?v=0.5.31';
 import {poisonApplication} from './poison.mjs?v=0.5.29';
 import {recordFlaskHit} from './flasks.mjs?v=0.5.24';
 import {bleedApplication} from './bleed.mjs?v=0.5.21';
@@ -9,11 +9,11 @@ import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
 import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.18';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.27';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.31';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
-import {mitigateDot} from './dot.mjs?v=0.5.30';
+import {mitigateDot} from './dot.mjs?v=0.5.31';
 
 const TAU=2*Math.PI;
 const segmentDistance=(e,a,b)=>{
@@ -262,7 +262,7 @@ export function rangerHooks({modifiers,random=Math.random,weapon=weaponStats(cru
    criticalChance:p.phaseDone&&active.sourceKey==='IceSpear'?Math.min(1,p.skill.criticalChance*7):p.skill.criticalChance,
    criticalMultiplier:p.skill.criticalMultiplier+(p.phaseDone&&active.sourceKey==='IceSpear'?.3:0)};
   const exposure=target.exposureUntil>time?{...target.defence?.resistances,...Object.fromEntries(elements.map(type=>[type,(target.defence?.resistances?.[type]??0)-(target.exposed?.includes(type)?.25:0)]))}:undefined;
-  const result=resolveAttackImpact({attacker:{...p.attacker,accuracy:player.accuracy,maximumLife:player.maximumLife,life:player.life,rules:p.leechProxy==='minion'?{...player.rules,perfectAgony:false}:player.rules},target:{...target,combatResistances:exposure},skill:s,modifiers,rolls:p.rolls,combatTime:time});
+  const result=resolveAttackImpact({attacker:{...p.attacker,accuracy:player.accuracy,baseAccuracy:player.baseAccuracy,increasedAccuracy:player.increasedAccuracy,maximumLife:player.maximumLife,life:player.life,rules:p.leechProxy==='minion'?{...player.rules,perfectAgony:false}:player.rules},target:{...target,combatResistances:exposure},skill:s,modifiers,rolls:p.rolls,combatTime:time});
   let t=result.target;delete t.combatResistances;
   if(!result.hit.hit||result.mitigation?.blocked)return t;
   recordFlaskHit(player,p,time);

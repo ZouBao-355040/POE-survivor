@@ -1,6 +1,6 @@
 import {blockStats} from './defence.mjs?v=0.5.21';
 import {equippedStats} from './town-services.mjs?v=0.5.21';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.30';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.31';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.18';
 import {resourceKeystones} from './keystones.mjs?v=0.5.18';
@@ -38,7 +38,8 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
  const resource=resourceKeystones({maximumLife:life,maximumMana:Math.round((58+gear.mana+sum('mana')+Math.floor(intelligence/2)-7)*(1+up('mana'))),
   maximumEnergyShield:Math.round((gear.energyShield+sum('es'))*(1+up('es')+Math.floor(intelligence/10)*.02))},keys);
  const {maximumLife,maximumMana,maximumEnergyShield}=resource.stats;
- const accuracy=Math.round((90+gear.accuracy+sum('accuracy')+2*(dexterity-32))*(1+up('accuracy')));
+ const baseAccuracy=90+gear.accuracy+sum('accuracy')+2*(dexterity-32),increasedAccuracy=up('accuracy');
+ const accuracy=Math.round(baseAccuracy*(1+increasedAccuracy));
  const evasion=Math.round((15+gear.evasion+sum('evasion'))*(1+up('evasion')+(!keys.has('ironReflexes')&&!keys.has('magebane')?(dexterity-32)*.002:-32*.002)));
  const armour=Math.round((gear.armour+sum('armour'))*(1+up('armour')))+(keys.has('ironReflexes')?evasion:0);
  const resistances={},maximumResistances={};
@@ -70,7 +71,7 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   maximumMana,mana:refill?maximumMana:Math.min(player.mana,maximumMana),
   maximumEnergyShield,energyShield:refill?maximumEnergyShield:Math.min(player.energyShield??0,maximumEnergyShield),
   esRechargeDelay:2/(1+up('esFasterStart')),
-  esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),moveBase:4*gear.speed,movePerTotem:sum('movePerTotem'),
+  esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),baseAccuracy,increasedAccuracy,accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),moveBase:4*gear.speed,movePerTotem:sum('movePerTotem'),
   lifeRegen:keys.has('zealotsOath')?0:regen()*(rules.eternalYouth?.5:1),esRegen:maximumEnergyShield*sum('esRegenPct')+(keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0),manaRegenMultiplier:Math.max(0,1+up('manaRegen')+sum('manaRegenPerSpellBlock')*block.spellBlock),manaRegenFlat:sum('manaRegenFlat'),
   flaskConfig:{gain:1+up('flaskChargeGain'),duration:1+up('flaskDuration'),effect:1+up('flaskEffect'),recovery:{life:1+up('flaskRecoveryLife'),mana:1+up('flaskRecoveryMana')},
    periodic:{life:sum('flaskPeriodicLife'),mana:sum('flaskPeriodicMana')},lifeOnHit:sum('flaskLifeOnHit'),lifeOnUse:sum('flaskLifeOnUse')},

@@ -91,6 +91,8 @@ export function parsePassiveLine(line){
   const keys=m[2]==='all Attributes'?['strength','dexterity','intelligence']:[m[2].toLowerCase()];
   return [keys.map(key=>numeric(key,+m[1])),translate[m[2]]+' +'+m[1]];
  }
+ if((m=line.match(/^(\d+)% increased Accuracy Rating with Bows$/)))
+  return [[numeric('attackAccuracy:bow',+m[1]/100,'increased')],'弓攻擊的命中值提高 '+m[1]+'%'];
  if((m=line.match(/^\+(\d+) to (maximum Life|maximum Mana|maximum Energy Shield|Evasion Rating|Accuracy Rating|Armour)$/)))
   return [[numeric(table[m[2]],+m[1])],translate[m[2]]+' +'+m[1]];
  if((m=line.match(/^(\d+(?:\.\d+)?)% (increased|reduced) (.+)$/))){
