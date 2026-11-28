@@ -1,4 +1,4 @@
-import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './conversion.mjs?v=0.5.33';
+import {prepareBaseDamage,convertDamage,scalePackets,aggregateDamage} from './conversion.mjs?v=0.5.34';
 import {resolveHit} from './hit.mjs?v=0.5.15';
 import {mitigateHit} from './defence.mjs?v=0.5.21';
 import {applyDamage,paySkillCost} from './resources.mjs?v=0.5.18';

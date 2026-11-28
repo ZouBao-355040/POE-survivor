@@ -53,6 +53,8 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^Projectiles deal (\d+)% increased Damage with Hits to targets at the start\s+of their movement, reducing to 0% as they travel farther$/)))
+  return [[numeric('adjacentAnimosity:projectile',+m[1]/100)],'投射物近距離擊中傷害提高 '+m[1]+'%，隨飛行距離增加降至 0%'];
  if((m=line.match(/^Projectiles gain Damage as they travel farther, dealing up\s+to (\d+)% increased Damage with Hits to targets$/)))
   return [[numeric('longshot:projectile',+m[1]/100)],'投射物飛行越遠，擊中傷害最多提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% increased Totem Placement speed$/i)))
