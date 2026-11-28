@@ -77,7 +77,7 @@ test('storage failures are non-fatal; invalid/newer saves and writes by another 
 test('update checking has no timer, deduplicates events, ignores old/offline, and honors dismissal',async()=>{
  let time=0,requests=0,replies=[{version:'0.5.24'},{version:'0.5.26'},{version:'0.5.26'},Error('offline'),{version:'0.5.27'}];
  const shown=[];
- const check=versionCheck({now:()=>time,cooldown:60,read:()=>{
+ const check=versionCheck({build,now:()=>time,cooldown:60,read:()=>{
   requests++;const x=replies.shift();if(x instanceof Error)throw x;return x;
  },show:v=>shown.push(v)});
  assert.equal(requests,0);

@@ -53,6 +53,8 @@ export const keystones=Object.freeze({
 });
 export function parsePassiveLine(line){
  let m;
+ if((m=line.match(/^(\d+)% increased Damage Over Time with Bow Skills$/)))return [[numeric('damageOverTime:bow',+m[1]/100,'increased')],'弓技能的持續傷害提高 '+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased Damage with Poison$/)))return [[numeric('poisonDamage',+m[1]/100,'increased')],'中毒傷害提高 '+m[1]+'%'];
  if((m=line.match(/^Attacks have (\d+)% chance to cause Bleeding$/)))
   return [[numeric('bleedChance:attack',+m[1]/100)],'攻擊有 '+m[1]+'% 機率造成流血'];
  if((m=line.match(/^(\d+)% increased Critical Strike Chance for Attacks$/)))
@@ -157,7 +159,12 @@ export function parsePassiveLine(line){
    '投射物攻擊'+(crit?'暴擊率提高 ':'暴擊加成 +')+m[2]+'%'];
  }
  if((m=line.match(/^(\d+)% increased (Evasion Rating and Armour|Armour and Evasion Rating)$/)))return [[numeric('evasion',+m[1]/100,'increased'),numeric('armour',+m[1]/100,'increased')],'閃避值與護甲提高 '+m[1]+'%'];
- if((m=line.match(/^(\d+)% increased Damage Over Time with Bow Skills$/)))return [[numeric('damageOverTime:bow',+m[1]/100,'increased')],'弓技能的持續傷害提高 '+m[1]+'%'];
+ if((m=line.match(/^(\d+)% chance to Poison on Hit(?: with (Attacks|Spell Damage))?$/))){
+  const source=m[2]==='Attacks'?'attack':m[2]==='Spell Damage'?'spell':'';
+  return [[numeric('poisonChance'+(source?':'+source:''),+m[1]/100)],(source==='attack'?'攻擊':source==='spell'?'法術':'')+'擊中時有 '+m[1]+'% 機率使敵人中毒'];
+ }
+ if((m=line.match(/^\+(\d+)% to Damage over Time Multiplier for Poison$/)))return [[numeric('poisonDotMultiplier',+m[1]/100)],'中毒持續傷害加成 +'+m[1]+'%'];
+ if((m=line.match(/^(\d+)% increased Poison Duration$/)))return [[numeric('poisonDuration',+m[1]/100,'increased')],'中毒持續時間提高 '+m[1]+'%'];
  if((m=line.match(/^(\d+)% faster start of Energy Shield Recharge$/)))return [[numeric('esFasterStart',+m[1]/100,'increased')],'能量護盾充能開始速度加快 '+m[1]+'%'];
  if(line==='Life Flasks gain a Charge when you hit an Enemy, no more than once each second')
   return [[numeric('flaskLifeOnHit',1)],'你的擊中使生命藥劑獲得 1 次充能，每秒最多一次'];
