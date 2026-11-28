@@ -1,6 +1,6 @@
-import {blockStats} from './defence.mjs?v=0.5.18';
-import {equippedStats} from './town-services.mjs?v=0.5.6';
-import {selectedPassives} from './passive-tree.mjs?v=0.5.20';
+import {blockStats} from './defence.mjs?v=0.5.21';
+import {equippedStats} from './town-services.mjs?v=0.5.21';
+import {selectedPassives} from './passive-tree.mjs?v=0.5.21';
 import {classAttributes,resolveCharacterClass} from './character.mjs?v=0.5.10';
 import {combatRecoveryResources} from './combat-recovery.mjs?v=0.5.18';
 import {resourceKeystones} from './keystones.mjs?v=0.5.18';
@@ -33,11 +33,11 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
  modifiers.replace('talents',passiveMods);
  const life=Math.round((70+gear.life+sum('life')+Math.floor(strength/2)-7)*(1+up('life')+(lifeAffix?0:sum('lifeWithoutBodyLife')))*(sum('sixLifeMasteries')&&lifeMasteries>=6?1.1:1));
  const resource=resourceKeystones({maximumLife:life,maximumMana:Math.round((58+gear.mana+sum('mana')+Math.floor(intelligence/2)-7)*(1+up('mana'))),
-  maximumEnergyShield:Math.round(sum('es')*(1+up('es')+Math.floor(intelligence/10)*.02))},keys);
+  maximumEnergyShield:Math.round((gear.energyShield+sum('es'))*(1+up('es')+Math.floor(intelligence/10)*.02))},keys);
  const {maximumLife,maximumMana,maximumEnergyShield}=resource.stats;
  const accuracy=Math.round((90+gear.accuracy+sum('accuracy')+2*(dexterity-32))*(1+up('accuracy')));
  const evasion=Math.round((15+gear.evasion+sum('evasion'))*(1+up('evasion')+(!keys.has('ironReflexes')&&!keys.has('magebane')?(dexterity-32)*.002:-32*.002)));
- const armour=Math.round(sum('armour')*(1+up('armour')))+(keys.has('ironReflexes')?evasion:0);
+ const armour=Math.round((gear.armour+sum('armour'))*(1+up('armour')))+(keys.has('ironReflexes')?evasion:0);
  const resistances={},maximumResistances={};
  for(const type of ['fire','cold','lightning','chaos']){
   resistances[type]=(gear.resistances[type]??0)+sum('res:'+type);
@@ -68,7 +68,7 @@ export function applyLoadout(player,town,progression,modifiers,{refill=false}={}
   maximumEnergyShield,energyShield:refill?maximumEnergyShield:Math.min(player.energyShield??0,maximumEnergyShield),
   esRechargeRate:Math.max(0,(1+up('esRecharge'))/3)*(keys.has('eldritchBattery')?.5:1)*(keys.has('wickedWard')?.6:1),accuracy,evasion:keys.has('ironReflexes')?0:evasion,speed:4*gear.speed*Math.max(0,1+up('move')),
   lifeRegen:keys.has('zealotsOath')?0:regen(),esRegen:maximumEnergyShield*sum('esRegenPct')+(keys.has('zealotsOath')?sum('lifeRegen')+maximumEnergyShield*sum('lifeRegenPct'):0),manaRegenMultiplier:Math.max(0,1+up('manaRegen')+sum('manaRegenPerSpellBlock')*block.spellBlock),manaRegenFlat:sum('manaRegenFlat'),
-  rules,leechConfig,combatRecovery,defence:{...player.defence,armour,resistances,maximumResistances,reducedCritExtra:sum('reducedCritExtra'),
+  rules,leechConfig,combatRecovery,defence:{...player.defence,armour,hitArmourMultiplier:keys.has('imbalancedGuard')?2:1,maximumDamageReduction:keys.has('imbalancedGuard')?.5:.9,resistances,maximumResistances,reducedCritExtra:sum('reducedCritExtra'),
    ...block,suppressionPrevented:.5+sum('suppressPrevented'),
    suppressionChance:keys.has('acrobatics')?0:suppression,spellDodge:keys.has('acrobatics')?Math.min(.75,suppression*.5):0,suppressionLucky:!!sum('suppressLucky')}};
 }

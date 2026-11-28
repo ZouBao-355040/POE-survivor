@@ -29,12 +29,12 @@ export function mitigateHit({damage,source,defender={},penetration={},blockRoll=
  const cap=(isAttack?defender.maximumAttackBlock:defender.maximumSpellBlock)??defender.maximumBlock??.75;
  const blocked=blockRoll<clamp((isAttack?defender.attackBlock:defender.spellBlock)??0,0,cap);
  const suppressed=source==='spell'&&(defender.suppressionLucky?Math.min(suppressRoll,suppressRetry):suppressRoll)<clamp(defender.suppressionChance??0,0,1);
- const result=emptyDamage();
+ const result=emptyDamage(),maximumReduction=defender.maximumDamageReduction??.9;
  for(const t of damageTypes){
  let v=shifted[t];
- if(t==='physical')v*=1-armourReduction(defender.armour??0,v,defender.additionalPhysicalReduction??0);
+ if(t==='physical')v*=1-Math.min(maximumReduction,armourReduction((defender.armour??0)*(defender.hitArmourMultiplier??1),v,defender.additionalPhysicalReduction??0));
  else v=resistanceDamage(v,defender.resistances?.[t]??0,defender.maximumResistances?.[t]??.75,penetration[t]??0);
- if(['fire','cold','lightning'].includes(t))v*=1-clamp(defender.additionalElementalReduction??0,0,.9);
+ if(['fire','cold','lightning'].includes(t))v*=1-clamp(defender.additionalElementalReduction??0,0,maximumReduction);
  v*=Math.max(0,1+(defender.increasedTaken??0)+(defender.increasedTakenByType?.[t]??0));
  v*=(defender.takenMultipliers??[]).reduce((a,b)=>a*b,1);
  v*=(defender.hitTakenMultipliers??[]).reduce((a,b)=>a*b,1);

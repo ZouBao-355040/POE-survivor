@@ -1,4 +1,4 @@
-import {bleedApplication} from './bleed.mjs?v=0.5.20';
+import {bleedApplication} from './bleed.mjs?v=0.5.21';
 import {recoverOnAttackHit} from './combat-recovery.mjs?v=0.5.18';
 import {addHitLeech} from './player-leech.mjs?v=0.5.18';
 import {compileAttack} from './skill.mjs?v=0.5.14';
@@ -6,11 +6,11 @@ import {weaponStats} from './weapon.mjs';
 import {crudeBow,burningArrow,basicBowAttack} from './starter-data.mjs';
 import {Momentum,momentumSupport} from './momentum.mjs';
 import {paySkillCost,applyDamage,recover} from './resources.mjs?v=0.5.18';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.18';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.21';
 import {projectilePattern,bearing} from './projectile-pattern.mjs';
 import {nearestEnemy,distance} from './world.mjs';
 import {Charges,chargeEffects} from './charges.mjs';
-import {mitigateDot} from './dot.mjs';
+import {mitigateDot} from './dot.mjs?v=0.5.21';
 
 const TAU=2*Math.PI;
 const segmentDistance=(e,a,b)=>{

@@ -1,8 +1,8 @@
 import {recoveryLimit} from './engine/resources.mjs?v=0.5.18';
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
 import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.18';
-import {stepWorld} from './engine/game-loop.mjs?v=0.5.20';
-import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.20';
+import {stepWorld} from './engine/game-loop.mjs?v=0.5.21';
+import {rangerHooks,trainingWeaponFor} from './engine/ranger.mjs?v=0.5.21';
 import {ModifierStore} from './engine/modifiers.mjs';
 import {GemInventory} from './engine/gem-inventory.mjs?v=0.5.14';
 import {gemPrice,purchaseGem,shopStock,shopCampaign,gemAvailability,selectDroppedGem} from './engine/gem-shop.mjs?v=0.5.10';
@@ -11,12 +11,12 @@ import {gemLevelCap,gemXpRequired} from './engine/gem-growth.mjs';
 import {compatible,effectiveSupports} from './engine/skill.mjs?v=0.5.14';
 import {grantExperience} from './engine/progression.mjs';
 import {actOne,advanceRoute,trialStage} from './engine/act-one.mjs';
-import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.20';
-import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix} from './engine/town-services.mjs?v=0.5.10';
+import {places,gate,hillockId,canEnterTown,openingBeach,retryBeach,stepBeach,beginTrial,stepTrial} from './engine/campaign.mjs?v=0.5.21';
+import {gearSlots,wagerPrice,satchelLimit,newTownServices,rollGear,emptyBattleLoot,queueBattleLoot,queueTrialLoot,claimBattleLoot,equipGear,transferGear,transferGem,socketStoredGem,equippedSocketLayout,itemAffix,gearDefenceLabel} from './engine/town-services.mjs?v=0.5.21';
 import {claimLevelCurrency,rollCurrencyChoices,currencies,currencyBalance} from './engine/currency.mjs?v=0.5.10';
-import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.20';
-import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.20';
-import {renderTalentTree} from './talent-ui.mjs?v=0.5.20';
+import {applyLoadout} from './engine/player-loadout.mjs?v=0.5.21';
+import {allocate as allocateTalent,points as talentPoints} from './engine/passive-tree.mjs?v=0.5.21';
+import {renderTalentTree} from './talent-ui.mjs?v=0.5.21';
 import {craftCategories,craftAvailability,craftGear,affixCatalog,affixText} from './engine/gear-crafting.mjs?v=0.5.10';
 
 const $=s=>document.querySelector(s);
@@ -317,7 +317,7 @@ function gearLabel(g,{detail=false}={}){
  const title=document.createElement('strong');title.textContent=g.name;
  caption.append(title,div(gearSlots[g.slot]+' · '+g.rarity+(townItems.equipped[g.slot]===g.id?' · 穿戴中':''),'muted'));
  if(detail&&g.dropArea)caption.append(div('掉落：'+g.dropArea+' · '+g.dropSource,'muted'));
- if(detail)caption.append(div(itemAffix(g)+(g.affixes?.length?' · '+g.affixes.map(affixText).join('、'):''),'muted'));
+ if(detail)caption.append(div([itemAffix(g),...gearDefenceLabel(g),...(g.affixes??[]).map(affixText)].join(' · '),'muted'));
  card.append(gearIcon(g),caption);return card;
 }
 function renderEquipment(){
@@ -328,7 +328,7 @@ function renderEquipment(){
  const d=state.player.defence??{},pct=n=>new Intl.NumberFormat('zh-TW',{style:'percent',maximumFractionDigits:1}).format(n);
  const stat=div('攻擊格擋 '+pct(d.attackBlock??0)+'／'+pct(d.maximumAttackBlock??.75)+' 上限 · 法術格擋 '+pct(d.spellBlock??0)+'／'+pct(d.maximumSpellBlock??.75)+' 上限','muted');
  stat.id='block-summary';
- const armour=div('護甲 '+(d.armour??0)+((state.player.rules?.divineShield||state.player.rules?.ghostDance)?
+ const armour=div('護甲 '+(d.armour??0)+' · 閃避值 '+(state.player.evasion??0)+' · 能量護盾 '+(state.player.maximumEnergyShield??0)+((state.player.rules?.divineShield||state.player.rules?.ghostDance)?
   ' · 能量護盾回復上限 '+recoveryLimit(state.player,'energyShield'):''),'muted');
  armour.id='armour-summary';
  townDialog.append(heading('角色防禦','h3'),stat,armour,heading('已穿戴','h3'),grid,heading('裝備背包','h3'));

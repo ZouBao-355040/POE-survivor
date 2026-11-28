@@ -1,4 +1,4 @@
-import {integrateBleed} from './bleed.mjs?v=0.5.20';
+import {integrateBleed} from './bleed.mjs?v=0.5.21';
 import {aimEnemyArrow,launchEnemyArrow,moveEnemyArrows,enemyArrowLimit} from './enemy-arrows.mjs?v=0.5.16';
 import {damageProxy,queueHitRecoup,recoverOnKill,tickHitRecoup} from './combat-recovery.mjs?v=0.5.18';
 import {advancePlayerLeech} from './player-leech.mjs?v=0.5.18';
@@ -7,9 +7,9 @@ import {advanceFlaskRecovery,autoFlasks} from './flasks.mjs?v=0.5.18';
 import {distance,moveToward,nearestEnemy,spawnEnemy} from './world.mjs';
 import {stepProjectiles} from './projectile.mjs?v=0.5.7';
 import {igniteIntervals} from './ignite.mjs?v=0.5.15';
-import {mitigateDot,integrateDot} from './dot.mjs';
+import {mitigateDot,integrateDot} from './dot.mjs?v=0.5.21';
 import {applyDamage,recover,recoveryLimit} from './resources.mjs?v=0.5.18';
-import {resolveAttackImpact} from './combat.mjs?v=0.5.18';
+import {resolveAttackImpact} from './combat.mjs?v=0.5.21';
 import {rechargeShield} from './recovery.mjs';
 import {agnosticStep,tickGhostShrouds,consumeGhostShroud,recordDivineShieldHit,tickDivineShield} from './keystones.mjs?v=0.5.18';
 import {grantExperience} from './progression.mjs';

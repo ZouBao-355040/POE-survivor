@@ -1,6 +1,6 @@
-import {attack} from './combat.mjs?v=0.5.18';
+import {attack} from './combat.mjs?v=0.5.21';
 import {igniteIntervals} from './ignite.mjs';
-import {mitigateDot} from './dot.mjs';
+import {mitigateDot} from './dot.mjs?v=0.5.21';
 import {applyDamage} from './resources.mjs?v=0.5.18';
 export function advanceCombat(state,dt,{skill,basicAttack,modifiers,manaRegen=0,rolls,context={},momentum,moving=false}){
  if(!Number.isFinite(dt)||dt<0)throw new RangeError('Invalid elapsed time');

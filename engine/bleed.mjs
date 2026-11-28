@@ -1,4 +1,4 @@
-import {mitigateDot} from './dot.mjs';
+import {mitigateDot} from './dot.mjs?v=0.5.21';
 
 // Applications expire independently. Do not discard a weaker one merely
 // because it is currently out of the top one/eight: it may outlast the others.

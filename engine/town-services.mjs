@@ -7,6 +7,15 @@ export const gearSlots=Object.freeze({weapon:'武器',body:'胸甲',helmet:'頭�
 export const wagerPrice=6;
 export const satchelLimit=18;
 const gearNames={weapon:['銅紋武裝','海濱武裝','生鏽武裝'],body:['巡岸外衣','漂流鎧衣','獅眼護甲'],helmet:['皮革兜帽','鐵製頭盔','獅眼頭盔'],gloves:['皮革手套','鐵製手甲','獅眼手甲'],boots:['泥痕短靴','鹽漬皮靴','巡路長靴']};
+// Independent base defences; the existing slot value and crafting affixes stay intact.
+const defenceBases={
+ body:[{evasion:16},{armour:24},{energyShield:12}],
+ helmet:[{evasion:10},{armour:14},{energyShield:8}],
+ gloves:[{evasion:7},{armour:10},{armour:6,energyShield:4}],
+ boots:[{evasion:8},{energyShield:5},{armour:6,evasion:4}]
+};
+export const gearDefenceLabel=item=>Object.entries(item.baseDefence??{}).map(([key,value])=>
+ ({armour:'護甲',evasion:'閃避值',energyShield:'能量護盾'}[key]??key)+' +'+value);
 export function newTownServices({starter=false}={}){
  const gear=starter?[
   {id:'starter-weapon',slot:'weapon',name:'粗製短弓',rarity:'普通',value:0,starter:true},
@@ -19,9 +28,11 @@ export const equippedSocketLayout=town=>Object.fromEntries(Object.entries(bowLay
 function sample(random){const n=random();if(!(n>=0&&n<1))throw new RangeError('無效擲骰');return n;}
 function gearBlueprint(slot,random,rank,itemLevel=3){
  const rarity=['普通','魔法','稀有'][rank];
- const name=gearNames[slot][Math.floor(sample(random)*3)];
+ const baseIndex=Math.floor(sample(random)*3),name=gearNames[slot][baseIndex];
  const value=slot==='weapon'?8+rank*5+Math.floor(sample(random)*4):slot==='body'?8+rank*5+Math.floor(sample(random)*5):5+rank*4+Math.floor(sample(random)*3);
- return rollGearAffixes({slot,name,rarity,value,itemLevel},random);
+ const base=defenceBases[slot]?.[baseIndex];
+ const baseDefence=base&&Object.fromEntries(Object.entries(base).map(([key,amount])=>[key,Math.round(amount*(1+Math.max(0,itemLevel-2)*.08))]));
+ return rollGearAffixes({slot,name,rarity,value,itemLevel,...(baseDefence?{baseDefence}:{})},random);
 }
 function addGear(town,blueprint){
  const item={...blueprint,id:'gear-'+town.nextItem};
@@ -120,11 +131,12 @@ export function socketStoredGem(town,inventory,id,group,index){
 export function equippedStats(town){
  const equipped=Object.entries(town.equipped).map(([slot,id])=>town.gear.find(g=>g.id===id&&g.slot===slot)).filter(Boolean);
  const value=slot=>equipped.find(g=>g.slot===slot)?.value??0;
+ const local=key=>equipped.reduce((n,item)=>n+(item.baseDefence?.[key]??0),0);
  const mods={};
  for(const item of equipped)for(const affix of item.affixes??[])mods[affix.key]=(mods[affix.key]??0)+affix.value;
  return {attack:(value('weapon')+value('gloves')+(mods.attack??0))/100,
   life:value('body')+value('helmet')+(mods.life??0),speed:1+(value('boots')+(mods.move??0))/100,
-  mana:mods.mana??0,accuracy:mods.accuracy??0,evasion:mods.evasion??0,
+  mana:mods.mana??0,accuracy:mods.accuracy??0,evasion:local('evasion')+(mods.evasion??0),armour:local('armour'),energyShield:local('energyShield'),
   resistances:Object.fromEntries(['fire','cold','lightning'].map(key=>[key,(mods[key]??0)/100]))};
 }
 export function itemAffix(item){
