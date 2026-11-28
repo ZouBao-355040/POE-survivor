@@ -60,3 +60,6 @@ h2,h3,p{margin:.6em 0}h2{color:var(--gold);font-size:1.28em}h3{font-size:1em}.mu
 .mastery-choice{margin:5px 0;padding:5px 0;border-bottom:1px solid #44515a}
 #es-meter{position:fixed;top:94px;left:12px;color:#a8dff2;font-size:.75rem;background:#19272ee8;border-radius:6px;padding:3px 6px}
 @media(max-width:680px){.talent-shell{grid-template-columns:1fr}.talent-map{height:clamp(172px,31dvh,260px)}.talent-results{max-height:80px}.talent-details{max-height:160px}.talent-tools button{font-size:.82rem;padding:5px 8px;min-height:33px}}
+
+#version-badge{min-height:26px;padding:2px 5px;font-size:11px;color:var(--gold);letter-spacing:0}
+#version-message{border:1px solid var(--line);padding:0 10px 10px;margin-bottom:12px;border-radius:8px}

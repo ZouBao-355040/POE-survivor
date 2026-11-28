@@ -1,3 +1,5 @@
+import {checkpointStore} from './engine/checkpoint.mjs?v=0.5.25';
+import {buildVersion,versionCheck} from './engine/version-check.mjs?v=0.5.25';
 import {recoveryLimit} from './engine/resources.mjs?v=0.5.18';
 import {campaignCharacter,newCampaignProgression} from './engine/character.mjs?v=0.5.10';
 import {starterFlasks,flaskBases} from './engine/flasks.mjs?v=0.5.24';
@@ -44,6 +46,68 @@ let inventory,hooks,state,townItems,activeCurrencyChoices=null,guide=false,picke
 let shopTab='active',shopSearch='',shopCompatible=true,shopShowLocked=false;
 let dir={x:0,y:0},facing={x:1,y:0},manualQueued=false,origin=null,last=performance.now(),acc=0,toastUntil=0;
 const keys=new Set();
+const storage={
+ getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value),removeItem:key=>localStorage.removeItem(key)
+};
+const saves=checkpointStore(storage,buildVersion);
+let startupSave=saves.load(),saveMessage='',availableVersion=null,replaceRequested=false;
+const updates=versionCheck({now:()=>performance.now(),read:async()=>{
+ const url=new URL('./version.json',import.meta.url);
+ url.searchParams.set('check',Date.now());
+ const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(5000)});
+ if(!response.ok)return null;
+ return response.json();
+},show:version=>{availableVersion=version;renderVersion();}});
+function saveTown(){
+ if(state?.zone!=='town')return false;
+ const ok=saves.save({state,town:townItems,inventory,choices:activeCurrencyChoices});
+ saveMessage=ok?'已儲存 · 獅眼守望':'無法寫入存檔。其他分頁可能已儲存，或瀏覽器未允許儲存。';
+ renderVersion();
+ return ok;
+}
+function renderVersion(){
+ const badge=$('#version-badge'),section=$('#version-message'),atTown=state?.zone==='town';
+ badge.hidden=!availableVersion;
+ section.hidden=!availableVersion;
+ $('#apply-version').hidden=!availableVersion||!atTown;
+ if(availableVersion)$('#version-message-copy').textContent='有新版 v'+availableVersion+'。'+(atTown?'可先儲存再重新載入。':'回到獅眼守望後可儲存更新，不會在戰鬥中重新載入。');
+ $('#checkpoint-status').textContent=saveMessage||(atTown?'此瀏覽器可保留獅眼守望存檔。':'續玩會從最近一次在獅眼守望的存檔開始。');
+}
+function setupStartup(){
+ const ready=startupSave.status==='ready',msg=$('#checkpoint-start-message');
+ $('#start-guide').hidden=ready;$('#skip-guide').hidden=ready;
+ $('#resume-checkpoint').hidden=!ready;$('#replace-checkpoint').hidden=!ready;
+ $('#replace-checkpoint').textContent=replaceRequested?'確認放棄存檔':'重新開始';
+ $('#guide-choice-title').textContent=ready?'繼續流亡之旅':'你在絕望岩灘醒來了';
+ msg.hidden=startupSave.status==='empty';
+ msg.textContent=ready?(replaceRequested?'確認後會清除目前這個存檔。':'已有獅眼守望存檔，可從上一個安全點繼續。'):
+  startupSave.status==='incompatible'?'存檔來自較新的或不相容的版本。原檔不會被覆蓋。':
+  startupSave.status==='invalid'?'這個存檔無法讀取，原檔不會被覆蓋。':'此瀏覽器無法讀取本機存檔。';
+}
+function resumeCheckpoint(){
+ if(startupSave.status!=='ready')return false;
+ const saved=startupSave;
+ reset(false);
+ inventory=saved.inventory;townItems=saved.town;
+ hooks=rangerHooks({modifiers,inventory});
+ state={...state,zone:'town',gateOpen:true,routeIndex:saved.routeIndex,chapterComplete:saved.routeIndex>=actOne.length,
+  gold:saved.gold,kills:saved.kills,progression:saved.progression,bossGearRewards:saved.bossGearRewards,enemies:[]};
+ activeCurrencyChoices=saved.choices;
+ updateEquipment({refill:true});
+ saveMessage='已讀取存檔 · 獅眼守望';
+ guideChoice.close();clearInput();renderVersion();return true;
+}
+function newRun(){
+ if(!saves.clear()&&startupSave.status==='ready'){
+  saveMessage='存檔已由其他分頁更改。請重開此頁確認，未刪除任何存檔。';
+  renderVersion();
+  const msg=$('#checkpoint-start-message');msg.hidden=false;msg.textContent=saveMessage;
+  return;
+ }
+ startupSave={status:startupSave.status==='ready'?'empty':startupSave.status};
+ replaceRequested=false;reset();setupStartup();
+}
+
 function clearInput(){manualQueued=false;keys.clear();origin=null;dir={x:0,y:0};}
 function notify(message){$('#toast').textContent=message;toastUntil=(state.time??0)+3;}
 const xpCost=l=>24+l*13;
@@ -66,7 +130,9 @@ function startGuide(want){
 }
 $('#start-guide').onclick=()=>startGuide(true);
 $('#skip-guide').onclick=()=>startGuide(false);
-guideChoice.addEventListener('cancel',e=>{e.preventDefault();startGuide(false);});
+guideChoice.addEventListener('cancel',e=>{e.preventDefault();if(!resumeCheckpoint())startGuide(false);});
+$('#resume-checkpoint').onclick=resumeCheckpoint;
+$('#replace-checkpoint').onclick=()=>{if(replaceRequested)newRun();else{replaceRequested=true;setupStartup();}};
 function enterTown(){
  if(state.zone==='beach'){
   if(!canEnterTown(state))return;
@@ -85,11 +151,12 @@ function enterTown(){
   state.openingLoot='西拉克戰利品：'+loot.gold+' 金幣'+(loot.item?'、'+loot.item.name+'、'+loot.orb:'');
  }
  state.lootReceipt=claimed.claimedGold||claimed.claimedOrbs||claimed.claimedGems||claimed.claimedGear?'回城已收取：'+claimed.claimedGold+' 金幣、'+claimed.claimedOrbs+' 顆通貨、'+claimed.claimedGems+' 顆寶石'+(claimed.claimedGear?'、'+claimed.claimedGear+' 件裝備':''):'';
- acc=0;clearInput();$('#toast').textContent='';
+ acc=0;clearInput();$('#toast').textContent='';saveTown();updates.check();
 }
 function startStage(route){
  const next=trialStage(route.routeIndex??0);
  if(!next)return;
+ if(state.zone==='town')saveTown();
  if(townDialog.open)townDialog.close();
  state=beginTrial(route,next);state.player={...state.player,shieldInterruptedAt:0,shieldCharging:false};acc=0;clearInput();$('#toast').textContent='';
 }
@@ -191,6 +258,7 @@ function renderGems(){
 }
 function practice(id){
  const active=gemById.get(id);if(active.kind!=='active')return;
+ if(state.zone==='town')saveTown();
  closeGems();reset(false);
  inventory=new GemInventory();inventory.acquire(active);inventory.equip(active.id,'weapon',0);inventory.setMode(active.id,'auto');hooks=rangerHooks({modifiers,inventory});
  state.practice=true;state.zone='practice';
@@ -222,8 +290,9 @@ function renderLibrary(){
 }
 function renderLevelReward(){
  reward.replaceChildren();
- const choices=rollCurrencyChoices();
+ const choices=activeCurrencyChoices??rollCurrencyChoices();
  activeCurrencyChoices=choices;
+ if(state.zone==='town')saveTown();
  const level=state.progression.level-state.progression.pendingChoices+1;
  reward.append(heading('等級 '+level+' · 通貨三選一'),div('選一顆通貨，直接存入倉庫。','muted'));
  const options=div('','currency-choices');
@@ -233,6 +302,7 @@ function renderLevelReward(){
   state.progression=result.progression;
   townItems={...townItems,storedOrbs:result.wallet};
   notify('已取得 '+orb);
+  activeCurrencyChoices=null;
   if(state.progression.pendingChoices>0)renderLevelReward();
   else {activeCurrencyChoices=null;reward.hidden=true;town.inert=false;}
  }));
@@ -483,17 +553,31 @@ function openCharacterPanel(draw){
 $('#gear-open').onclick=()=>openCharacterPanel(renderEquipment);
 $('#talent-open').onclick=()=>openCharacterPanel(renderTalents);
 townDialog.addEventListener('close',()=>{townDialog.classList.remove('craft-dialog','talent-dialog');clearInput();acc=0;});
-reset();
+reset(false);setupStartup();guideChoice.showModal();updates.check();
 const menuStart=$('#menu-start'),restart=$('#restart'),confirmRestart=$('#confirm-restart');
 function restartPhase(confirming){
  restart.hidden=confirming;confirmRestart.hidden=!confirming;
  $('#restart-warning').hidden=!confirming;
 }
-$('#menu-open').onclick=()=>{clearInput();acc=0;restartPhase(false);gameMenu.showModal();};
+$('#menu-open').onclick=()=>{clearInput();acc=0;restartPhase(false);renderVersion();gameMenu.showModal();};
 function closeMenu(){gameMenu.close();clearInput();acc=0;$('#menu-open').focus();}
 menuStart.onclick=closeMenu;
 restart.onclick=()=>{restartPhase(true);confirmRestart.focus();};
-confirmRestart.onclick=()=>reset();
+confirmRestart.onclick=newRun;
+$('#version-badge').onclick=()=>$('#menu-open').click();
+$('#dismiss-version').onclick=()=>{updates.dismiss(availableVersion);availableVersion=null;renderVersion();};
+$('#apply-version').onclick=()=>{
+ if(!availableVersion||state.zone!=='town'||!saveTown())return;
+ const url=new URL('./',location.href);url.searchParams.set('v',availableVersion);location.replace(url);
+};
+document.addEventListener('click',e=>{
+ if(e.target.closest?.('button'))queueMicrotask(()=>{if(state.zone==='town')saveTown();});
+});
+document.addEventListener('visibilitychange',()=>{
+ if(document.visibilityState==='hidden'){if(state.zone==='town')saveTown();}
+ else updates.check();
+});
+addEventListener('pagehide',()=>{if(state.zone==='town')saveTown();});
 gameMenu.addEventListener('cancel',e=>{e.preventDefault();closeMenu();});
 addEventListener('keydown',e=>{
  if(!enabled())return;

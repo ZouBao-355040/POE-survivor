@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict';
+import {encodeCheckpoint,checkpointKey} from '../engine/checkpoint.mjs';
+import {GemInventory} from '../engine/gem-inventory.mjs';
+import {gemById} from '../engine/projectile-catalog.mjs';
+import {newTownServices,equippedSocketLayout} from '../engine/town-services.mjs';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE??'playwright');
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_EXECUTABLE});
+const url=process.env.GAME_URL??'http://127.0.0.1:8173/';
+const viewport={width:412,height:892};
+const page=await browser.newPage({viewport,hasTouch:true,isMobile:true,ignoreHTTPSErrors:true});
+let marker='0.5.25',requests=0;
+const failures=[];page.on('pageerror',e=>failures.push(e.message));
+try {
+ const town=newTownServices({starter:true}),inventory=new GemInventory();
+ inventory.setLayout(equippedSocketLayout(town));inventory.acquire(gemById.get('burning-arrow'));
+ const state={zone:'town',gold:17,routeIndex:1,progression:{level:3,experience:0,passivePoints:2,pendingChoices:0,characterClass:'Ranger'}};
+ const raw=encodeCheckpoint({state,town,inventory},'0.5.25');
+ await page.addInitScript(({key,raw})=>{if(!localStorage.getItem(key))localStorage.setItem(key,raw);},{key:checkpointKey,raw});
+ await page.route('**/version.json?*',route=>{requests++;return route.fulfill({json:{version:marker}});});
+ await page.route('**/engine/version-check.mjs?v=0.5.25',async route=>{
+  if(!route.request().frame().url().includes('?v=0.5.26'))return route.continue();
+  const response=await route.fetch(),source=await response.text();
+  assert.ok(source.includes("buildVersion='0.5.25'"));
+  return route.fulfill({response,body:source.replace("buildVersion='0.5.25'","buildVersion='0.5.26'")});
+ });
+ await page.route('**/?v=0.5.26',async route=>{
+  if(route.request().resourceType()!=='document')return route.continue();
+  const response=await route.fetch(),source=await response.text();
+  return route.fulfill({response,body:source.replace('<small>v0.5.25</small>','<small>v0.5.26</small>')});
+ });
+ const btn=name=>page.getByRole('button',{name,exact:true});
+ await page.clock.install();
+ await page.goto(url,{waitUntil:'networkidle'});
+ await btn('繼續遊戲').click();
+ await page.clock.runFor(100);
+ assert.equal(requests,1);
+ assert.equal(await page.locator('#gold-hud').innerText(),'金幣 17');
+ assert.equal(await btn('有新版').isVisible(),false);
+ marker='0.5.26';
+ await page.clock.fastForward(125000);
+ assert.equal(requests,1,'do not repeat version checks when left open');
+ await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+ await btn('有新版').waitFor();
+ assert.equal(requests,2);
+ await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+ assert.equal(requests,2);
+ await btn('有新版').click();
+ assert.match(await page.locator('#version-message-copy').innerText(),/v0.5.26/);
+ await btn('先不更新').click();
+ assert.equal(await btn('有新版').isVisible(),false);
+ await btn('回到遊戲').click();
+
+ // A second old session intentionally begins with the version alert available.
+ await page.reload({waitUntil:'networkidle'});
+ await btn('繼續遊戲').click();
+ await btn('有新版').click();
+ await btn('儲存並重新載入').click();
+ await page.waitForURL('**/?v=0.5.26');
+ await btn('繼續遊戲').click();
+ await page.clock.runFor(100);
+ assert.match(await page.locator('.brand').innerText(),/v0\.5\.26/);
+ assert.equal(await page.locator('#gold-hud').innerText(),'金幣 17');
+ assert.equal(await btn('有新版').isVisible(),false);
+ assert.deepEqual(failures,[]);
+ console.log('版本提示：前景事件才檢查、有冷卻、可略過；使用測試版號更新並重新讀取獅眼守望。');
+
+ const denied=await browser.newPage({viewport,hasTouch:true,isMobile:true});
+ await denied.addInitScript(()=>{Object.defineProperty(window,'localStorage',{get(){throw new DOMException('blocked','SecurityError');}});});
+ await denied.route('**/version.json?*',route=>route.fulfill({json:{version:'0.5.26'}}));
+ await denied.goto(url,{waitUntil:'networkidle'});
+ assert.match(await denied.locator('#checkpoint-start-message').innerText(),/無法讀取/);
+ await denied.getByRole('button',{name:'跳過教學',exact:true}).click();
+ assert.match(await denied.locator('#hint').innerText(),/普通攻擊/);
+ await denied.getByRole('button',{name:'有新版',exact:true}).click();
+ assert.ok(await denied.locator('#version-message').isVisible());
+ assert.equal(await denied.locator('#apply-version').isVisible(),false);
+ assert.match(await denied.locator('#version-message-copy').innerText(),/回到獅眼守望/);
+ console.log('存檔：瀏覽器阻擋本機儲存時仍可正常開始遊戲。');
+ await denied.close();
+} finally {await browser.close();}
